@@ -1,44 +1,63 @@
 #include <stdalign.h>
 #include <stdio.h>
 
-// My lib
-
-extern void asm_add_vectors_512(const float *a, const float *b, float *out, int count);
-extern void verlet_integration(const float *pos, const float *vel, const float *accel,
-                               const float dt, float *posOut, float *velOut, int count,
-                               const float *force, const float mass);
+typedef struct {
+    // Each pointer is 8 bytes
+    const float *posX;
+    const float *posY;
+    const float *posZ;
+    // So 3*8 = 24 bytes offset
+    const float *velX;
+    const float *velY;
+    const float *velZ;
+    // Hence 48 bytes
+    const float *forceX;
+    const float *forceY;
+    const float *forceZ;
+} VerletInputs;
 
 typedef struct {
-    alignas(64) float x[16];
-    alignas(64) float y[16];
-    alignas(64) float z[16];
-} Chungus;
+    float *posOutX;
+    float *posOutY;
+    float *posOutZ;
+
+    float *velOutX;
+    float *velOutY;
+    float *velOutZ;
+
+    float *accelX;
+    float *accelY;
+    float *accelZ;
+} VerletOutputs;
+
+extern void verlet_integration_soa(const VerletInputs *config, int count, const float dt,
+                                   const float mass, VerletOutputs *outputs);
 
 int main() {
     int count = 1024;
-    int smallerCount = count / 16;
-    float dt = 0.1f;
+    float dt = 0.01666f;
     float mass = 10.0f;
-    Chungus pos[smallerCount];
-    Chungus vel[smallerCount];
-    Chungus accel[smallerCount];
-    Chungus force[smallerCount];
-    Chungus posOut[smallerCount];
-    Chungus velOut[smallerCount];
 
-    for (int i = 0; i < count; i++) {
-        arrayA[i] = (float)i;
-        arrayB[i] = (float)(i / 2);
-        arrayOut[i] = 0.0f;
-    }
+    VerletInputs inputs = {.posX = posX,
+                           .posY = posY,
+                           .posZ = posZ,
+                           .velX = velX,
+                           .velY = velY,
+                           .velZ = velZ,
+                           .forceX = forceX,
+                           .forceY = forceY,
+                           .forceZ = forceZ,
+                           .accelX = accelX,
+                           .accelY = accelY,
+                           .accelZ = accelZ,
+                           .posOutX = posOutX,
+                           .posOutY = posOutY,
+                           .posOutZ = posOutZ,
+                           .velOutX = velOutX,
+                           .velOutY = velOutY,
+                           .velOutZ = velOutZ};
 
-    verlet_integration(pos, vel, accel, dt, posOut, velOut, count, force, mass);
-
-    float checksum = 0.0f;
-    for (int i = 0; i < count; i++) {
-        checksum += arrayOut[i];
-    }
-    printf("My lib: %.1f\n", checksum);
+    verlet_integration_soa(&config, count, dt, mass);
 
     return 0;
 }
