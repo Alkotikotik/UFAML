@@ -24,6 +24,7 @@ section .rodata
     xor r15, r15
 
 %%loop: ;%% means local 
+
     cmp r15, rsi
     jge %%exit
 
@@ -51,28 +52,36 @@ section .rodata
     vmulps zmm14, zmm10, zmm30
     vmulps zmm15, zmm11, zmm30
     
-    ; Save accel
-    vmovaps [r9 + rax], zmm12
-    vmovaps [r9 + rax + 64], zmm13
-    vmovaps [r9 + rax + 128], zmm14
-    vmovaps [r9 + rax + 192], zmm15
+    ; Save accel, straight to RAM
+    vmovntps [r9 + rax], zmm12
+    vmovntps [r9 + rax + 64], zmm13
+    vmovntps[r9 + rax + 128], zmm14
+    vmovntps [r9 + rax + 192], zmm15
     
-    ;Calculate new pos
-    vfmadd231ps zmm0, zmm4, zmm31
-    vfmadd231ps zmm1, zmm5, zmm31
-    vfmadd231ps zmm2, zmm6, zmm31
-    vfmadd231ps zmm3, zmm7, zmm31
+    
+    ;;Calculate new poses in parralel
+    vfmadd213ps zmm4, zmm31, zmm0
+    vmulps zmm16, zmm12, zmm29
+    vaddps zmm0, zmm4, zmm16
 
-    vfmadd231ps zmm0, zmm12, zmm29
-    vfmadd231ps zmm1, zmm13, zmm29
-    vfmadd231ps zmm2, zmm14, zmm29
-    vfmadd231ps zmm3, zmm15, zmm29
+    vfmadd213ps zmm5, zmm31, zmm1
+    vmulps zmm17, zmm13, zmm29
+    vaddps zmm1, zmm5, zmm17
+
+    vfmadd213ps zmm6, zmm31, zmm2
+    vmulps zmm18, zmm14, zmm29
+    vaddps zmm2, zmm7, zmm18
+
+    vfmadd213ps zmm7, zmm31, zmm3
+    vmulps zmm19, zmm15, zmm29
+    vaddps zmm3, zmm7, zmm19
+
 
     ;;Store new pos in r11
-    vmovaps [r11 + rax], zmm0
-    vmovaps [r11 + rax + 64], zmm1
-    vmovaps [r11 + rax + 128], zmm2
-    vmovaps [r11 + rax + 192], zmm3
+    vmovntps [r11 + rax], zmm0
+    vmovntps [r11 + rax + 64], zmm1
+    vmovntps [r11 + rax + 128], zmm2
+    vmovntps [r11 + rax + 192], zmm3
     
     ; Calculate new velocity 
     vfmadd231ps zmm4, zmm12, zmm31
@@ -81,10 +90,10 @@ section .rodata
     vfmadd231ps zmm7, zmm15, zmm31
     
     ;Store new velocity in r10
-    vmovaps [r10 + rax], zmm4
-    vmovaps [r10 + rax + 64], zmm5
-    vmovaps [r10 + rax + 128], zmm6
-    vmovaps [r10 + rax + 192], zmm7
+    vmovntps [r10 + rax], zmm4
+    vmovntps [r10 + rax + 64], zmm5
+    vmovntps [r10 + rax + 128], zmm6
+    vmovntps [r10 + rax + 192], zmm7
 
     add r15, 64
     add rax, 256 ; 64 * 4 bytes(per float)
@@ -173,6 +182,9 @@ verlet_integration:
     pop r14
     pop r13
     pop r12
+    
+    ;; Finilize RAM storage
+    sfence
 
 ret
 
