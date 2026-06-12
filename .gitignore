@@ -2,4 +2,6 @@ main
 test_asm
 test_pure_c
 test_asm
+pure_cpp
+bench_ufaml
 *.o

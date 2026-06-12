@@ -1,6 +1,13 @@
 section .rodata 
+    align 4 ; Align bytes here too
     _one: dd 1.0
     _half: dd 0.5
+
+    err_null_ptr:     db "UFAML Error: NULL pointer has been passed to verlet_integration", 0x0A
+    err_null_ptr_len: equ $ - err_null_ptr
+
+    err_align:        db "UFAML Error: Input arrays must be 64-byte aligned for AVX-512", 0x0A
+    err_align_len:    equ $ - err_align
 
 %macro PROCESS_AXIS_VERLET 1
     ; Load base pointers dynamically based on offset, so 0, 8, 16 for xyz
@@ -120,6 +127,23 @@ asm_add_vectors_512:
 global verlet_integration
 
 verlet_integration:
+
+    push r12
+    push r13
+    push r14
+    push r15
+    
+    ;Erors handeling
+    test rdi, rdi ;Check if inputs are NULL pointer
+    jz .handle_null_error 
+    
+    test rdx, rdx ; Same for outputs
+    jz .handle_null_error
+    
+    mov r8, [rdi]; Load to check alighment
+    test r8, 0x3F; Check if lowest 6 bits are aligned
+    jnz .handle_align_error
+
 ; rdi = verlet config struct
 ; rsi = count
 ; xmm0 = dt xmm bc float
@@ -127,11 +151,11 @@ verlet_integration:
 ; rdx = verlet outputs
     vbroadcastss zmm31, xmm0
 
-    vbroadcastss zmm29, [_half]
+    vbroadcastss zmm29, [rel _half]
     vmulps zmm28, zmm29, zmm31
     vmulps zmm29, zmm28, zmm31
     
-    vmovss xmm2, [_one]
+    vmovss xmm2, [rel _one]
     vdivss xmm2, xmm2, xmm1
     vbroadcastss zmm30, xmm2
 
@@ -145,4 +169,31 @@ verlet_integration:
     PROCESS_AXIS_VERLET 8      ; Y Axis
     PROCESS_AXIS_VERLET 16     ; Z Axis
 
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+
 ret
+
+.handle_null_error:
+    mov rax, 1 
+    mov rdi, 2
+    mov rsi, err_null_ptr
+    mov rdx, err_null_ptr_len
+    syscall
+
+    mov rax, 60
+    mov rdi, 1 ;general error
+    syscall
+
+.handle_align_error:
+    mov rax, 1 
+    mov rdi, 2
+    mov rsi, err_align
+    mov rdx, err_align_len
+    syscall
+
+    mov rax, 60
+    mov rdi, 2 ;Specific error
+    syscall
