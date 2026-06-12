@@ -11,13 +11,13 @@ section .rodata
 
 %macro PROCESS_AXIS_VERLET 1
     ; Load base pointers dynamically based on offset, so 0, 8, 16 for xyz
-    mov r14, [rdi + (%1)]          ; PosX base pointer
-    mov r13, [rdi + 24 + (%1)]     ; VelX base pointer
-    mov r12, [rdi + 48 + (%1)]     ; ForceX base pointer
+    mov r14, [rdi + (%1)]          ; PosX/Y/Z base pointer depending on %1
+    mov r13, [rdi + 24 + (%1)]     ; VelX/Y/Zbase pointer
+    mov r12, [rdi + 48 + (%1)]     ; ForceX/Y/Z base pointer
 
-    mov r11, [rdx + (%1)]          ; PosX output base pointer
-    mov r10, [rdx + 24 + (%1)]     ; VelX out
-    mov r9,  [rdx + 48 + (%1)]     ; AccelX out
+    mov r11, [rdx + (%1)]          ; PosX/Y/Z output base pointer
+    mov r10, [rdx + 24 + (%1)]     ; VelX/Y/Z out
+    mov r9,  [rdx + 48 + (%1)]     ; AccelX/Y/Z out
 
     ;;rax is gonna be our "i" in "for" loop
     xor rax, rax
@@ -209,3 +209,6 @@ ret
     mov rax, 60
     mov rdi, 2 ;Specific error
     syscall
+
+
+
