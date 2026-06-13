@@ -6,7 +6,7 @@
 // I did not write this code, since the main scope of this project is to write lib in assembly, and
 // this is just for benchmark and examples
 
-constexpr int PARTICLE_COUNT = 6400000;
+constexpr int PARTICLE_COUNT = 64000000;
 
 // Fixed Aligned Allocator with necessary boilerplate type definitions
 template <typename T, std::size_t Alignment = 64> struct AlignedAllocator {

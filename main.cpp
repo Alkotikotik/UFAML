@@ -2,7 +2,7 @@
 #include <memory>
 #include <new>
 
-constexpr int PARTICLE_COUNT = 6400000;
+constexpr int PARTICLE_COUNT = 64000000;
 
 // I did not write this code, since the main scope of this project is to write lib in assembly, and
 // this is just for benchmark and examples
