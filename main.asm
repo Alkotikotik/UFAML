@@ -21,12 +21,23 @@ section .rodata
 
     ;;rax is gonna be our "i" in "for" loop
     xor rax, rax
-    xor r15, r15
 
 %%loop: ;%% means local 
 
-    cmp r15, rsi
-    jge %%exit
+    prefetcht1 [r14 + rax + 512]
+    prefetcht1 [r14 + rax + 512 + 64]
+    prefetcht1 [r14 + rax + 512 + 128]
+    prefetcht1 [r14 + rax + 512 + 192]
+
+    prefetcht1 [r13 + rax + 512]
+    prefetcht1 [r13 + rax + 512 + 64]
+    prefetcht1 [r13 + rax + 512 + 128]
+    prefetcht1 [r13 + rax + 512 + 192]
+
+    prefetcht1 [r12 + rax + 512]
+    prefetcht1 [r12 + rax + 512 + 64]
+    prefetcht1 [r12 + rax + 512 + 128]
+    prefetcht1 [r12 + rax + 512 + 192]
 
     ; Pos
     vmovaps zmm0, [r14 + rax] ; 0 to 64 bytes float is 4 bytes so 0-15
@@ -70,7 +81,7 @@ section .rodata
 
     vfmadd213ps zmm6, zmm31, zmm2
     vmulps zmm18, zmm14, zmm29
-    vaddps zmm2, zmm7, zmm18
+    vaddps zmm2, zmm6, zmm18
 
     vfmadd213ps zmm7, zmm31, zmm3
     vmulps zmm19, zmm15, zmm29
@@ -95,9 +106,9 @@ section .rodata
     vmovntps [r10 + rax + 128], zmm6
     vmovntps [r10 + rax + 192], zmm7
 
-    add r15, 64
-    add rax, 256 ; 64 * 4 bytes(per float)
-    jmp %%loop
+    add rax, 256
+    cmp rax, rsi
+    jl %%loop
 
 %%exit:
 %endmacro
@@ -152,6 +163,8 @@ verlet_integration:
     mov r8, [rdi]; Load to check alighment
     test r8, 0x3F; Check if lowest 6 bits are aligned
     jnz .handle_align_error
+
+    shl rsi, 2
 
 ; rdi = verlet config struct
 ; rsi = count
