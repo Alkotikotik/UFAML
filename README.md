@@ -7,7 +7,7 @@ Proud to say that my code is faster than clang itself:
 | :--- | :---: | :---: | :---: |
 | **Dot Product (64M)** | 52.6 ms | 89.2 ms | **1.85x** |
 | **Verlet Integration(64M)** | 207.4ms | 290.3ms | **1.43x** |
-| **Vector Operation(64M)** | 107.3ms | 131.2ms | **1.22x** |
+| **Vector Operation(64M)** | 140.2ms | 211.4ms | **1.55x** |
 
 Don't worry I have used all of the clang flags: clang++ -O3 -march=native -ffast-math -std=c++17, yet im still faster
 Without them my code is like 3-5 times faster or even faster

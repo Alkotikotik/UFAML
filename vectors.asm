@@ -39,23 +39,58 @@
 %macro LOAD 0 
     ; Fetching vecA from stack
     mov rbx, [rsp]
+
+    prefetcht1 [rbx + rax + 512]
+    prefetcht1 [rbx + rax + 512 + 64]
+    prefetcht1 [rbx + rax + 512 + 128]
+    prefetcht1 [rbx + rax + 512 + 192]
+
     vmovaps zmm0, [rbx + rax]
     vmovaps zmm1, [rbx + rax + 64]
     vmovaps zmm2, [rbx + rax + 128]
     vmovaps zmm3, [rbx + rax + 192]
     
     mov rbx, [rsp + 8]
+
+    prefetcht1 [rbx + rax + 512]
+    prefetcht1 [rbx + rax + 512 + 64]
+    prefetcht1 [rbx + rax + 512 + 128]
+    prefetcht1 [rbx + rax + 512 + 192]
+
     vmovaps zmm4, [rbx + rax]
     vmovaps zmm5, [rbx + rax + 64]
     vmovaps zmm6, [rbx + rax + 128]
     vmovaps zmm7, [rbx + rax + 192]
 
+    
     mov rbx, [rsp + 16]
+
+    prefetcht1 [rbx + rax + 512]
+    prefetcht1 [rbx + rax + 512 + 64]
+    prefetcht1 [rbx + rax + 512 + 128]
+    prefetcht1 [rbx + rax + 512 + 192]
+
     vmovaps zmm8,  [rbx + rax]
     vmovaps zmm9,  [rbx + rax + 64]
     vmovaps zmm10, [rbx + rax + 128]
     vmovaps zmm11, [rbx + rax + 192]
-   
+
+    prefetcht1 [r14 + rax + 512]
+    prefetcht1 [r14 + rax + 512 + 64]
+    prefetcht1 [r14 + rax + 512 + 128]
+    prefetcht1 [r14 + rax + 512 + 192]
+
+    prefetcht1 [r13 + rax + 512]
+    prefetcht1 [r13 + rax + 512 + 64]
+    prefetcht1 [r13 + rax + 512 + 128]
+    prefetcht1 [r13 + rax + 512 + 192]
+
+    prefetcht1 [r12 + rax + 512]
+    prefetcht1 [r12 + rax + 512 + 64]
+    prefetcht1 [r12 + rax + 512 + 128]
+    prefetcht1 [r12 + rax + 512 + 192]
+
+
     vmovaps zmm12, [r14 + rax]
     vmovaps zmm13, [r14 + rax + 64]
     vmovaps zmm14, [r14 + rax + 128]
@@ -279,6 +314,90 @@ vec3_len_fast:
     xor rax, rax 
 .loop:
     COMPUTE_LENGTH FAST
+
+    add rax, 256
+    cmp rax, rsi
+    jl .loop
+
+.exit:
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    
+    sfence
+    ret
+
+global vec3_scale 
+vec3_scale:
+;rdi = vecA base pointer
+;xmm0 = factos
+;rsi = count 
+;rdx = output vector
+    push r12
+    push r13
+    push r14
+    push r15
+
+    shl rsi, 2
+
+    mov r14, [rdi] ; vecA X
+    mov r13, [rdi + 8] ; vecA Y
+    mov r12, [rdi + 16]; vecA Z
+
+    mov r11, [rdx]
+    mov r10, [rdx + 8]
+    mov r9, [rdx + 16]
+
+    vbroadcastss zmm31, xmm0
+
+.loop:
+    prefetcht1 [r14 + rax + 512]
+    prefetcht1 [r14 + rax + 512 + 64]
+    prefetcht1 [r14 + rax + 512 + 128]
+    prefetcht1 [r14 + rax + 512 + 192]
+
+    prefetcht1 [r13 + rax + 512]
+    prefetcht1 [r13 + rax + 512 + 64]
+    prefetcht1 [r13 + rax + 512 + 128]
+    prefetcht1 [r13 + rax + 512 + 192]
+
+    prefetcht1 [r12 + rax + 512]
+    prefetcht1 [r12 + rax + 512 + 64]
+    prefetcht1 [r12 + rax + 512 + 128]
+    prefetcht1 [r12 + rax + 512 + 192]
+
+    vmovaps zmm0, [r14 + rax]
+    vmovaps zmm1, [r14 + rax + 64]
+    vmovaps zmm2, [r14 + rax + 128]
+    vmovaps zmm3, [r14 + rax + 192]
+
+    vmovaps zmm4, [r13 + rax]
+    vmovaps zmm5, [r13 + rax + 64]
+    vmovaps zmm6, [r13 + rax + 128]
+    vmovaps zmm7, [r13 + rax + 192]
+
+    vmovaps zmm8, [r12 + rax]
+    vmovaps zmm9, [r12 + rax + 64]
+    vmovaps zmm10, [r12 + rax + 128]
+    vmovaps zmm11, [r12 + rax + 192]
+
+    vmulps zmm0, zmm0, zmm31
+    vmulps zmm1, zmm1, zmm31
+    vmulps zmm2, zmm2, zmm31
+    vmulps zmm3, zmm3, zmm31
+
+    vmulps zmm4, zmm4, zmm31
+    vmulps zmm5, zmm5, zmm31
+    vmulps zmm6, zmm6, zmm31
+    vmulps zmm7, zmm7, zmm31
+
+    vmulps zmm8, zmm8, zmm31
+    vmulps zmm9, zmm9, zmm31
+    vmulps zmm10, zmm10, zmm31
+    vmulps zmm11, zmm11, zmm31
+
+    SAVE
 
     add rax, 256
     cmp rax, rsi

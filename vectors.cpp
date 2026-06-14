@@ -9,11 +9,13 @@ struct vec3 {
     float *z;
 };
 
-extern "C" void vec3_add(const vec3 *vecA, const vec3 *vecB, const int count, const vec3 *result);
+extern "C" void vec3_add(const vec3 *vecA, const vec3 *vecB, const int count, vec3 *result);
 extern "C" void vec3_subtract(const vec3 *vecA, const vec3 *vecB, const int count,
                               const vec3 *result);
 extern "C" void vec3_len_accurate(const vec3 *vecA, const int count, float *result);
 extern "C" void vec3_len_fast(const vec3 *vecA, const int count, float *result);
+
+extern "C" void vec3_scale(const vec3 *vecA, const float factor, const int count, vec3 *result);
 
 float *allocate_aligned_floats(size_t count) { return ::new (std::align_val_t{64}) float[count]; }
 
@@ -26,11 +28,18 @@ int main() {
     float *rz = allocate_aligned_floats(COUNT);
     vec3 result{rx, ry, rz};
 
+    float *rsx = allocate_aligned_floats(COUNT);
+    float *rsy = allocate_aligned_floats(COUNT);
+    float *rsz = allocate_aligned_floats(COUNT);
+    vec3 result_scale{rsx, rsy, rsz};
+
     float *x = allocate_aligned_floats(COUNT);
     float *y = allocate_aligned_floats(COUNT);
     float *z = allocate_aligned_floats(COUNT);
 
     float *result_len = allocate_aligned_floats(COUNT);
+
+    float scale_factor = 4.0f;
 
     for (size_t i = 0; i < COUNT; ++i) {
         x[i] = 1.0f;
@@ -44,6 +53,7 @@ int main() {
     vec3_add(&vecA, &vecB, COUNT, &result);
     vec3_subtract(&vecA, &vecB, COUNT, &result);
     vec3_len_fast(&vecA, COUNT, result_len);
+    vec3_scale(&vecA, scale_factor, COUNT, &result_scale);
 
     free_aligned_floats(x);
     free_aligned_floats(y);
@@ -51,4 +61,8 @@ int main() {
     free_aligned_floats(rx);
     free_aligned_floats(ry);
     free_aligned_floats(rz);
+    free_aligned_floats(rsx);
+    free_aligned_floats(rsy);
+    free_aligned_floats(rsz);
+    free_aligned_floats(result_len);
 }
