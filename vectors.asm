@@ -1,105 +1,100 @@
-%macro PUSH_R 0 
+;; Basic vector operations: add, subtract, scale, length 
+
+%macro FETCH_2 0
     push r12
     push r13
     push r14
     push r15
-%endmacro
-section .text
+    push rbx
 
 
-global dot_product 
-
-;;According to some convention argv = [rdi, rsi, rdx, rcx, r8, r9] then on stack through xmm0-xmm7
-
-dot_product:
-    PUSH_R
 ;rdi = vecA base pointer
 ;rsi = vecB base pointer
 ;rdx = counter
 ;rcx = result base pointer
     shl rdx, 2 ;Multiply count by 4 
 
-    mov r14, [rdi] ; vecA X 
-    mov r13, [rdi + 8] ;vecA Y 
-    mov r12, [rdi + 16] ;vecA Z
+    sub rsp, 24 ;Reserve 24 bytes for vecA
 
-    mov r11, [rsi] ; vecB X
-    mov r10, [rsi + 8] ; vecB Y
-    mov r9, [rsi + 16] ; vecB Z
-
-
-    xor rax, rax 
-.loop:
-
-    prefetcht0 [r14 + rax + 512]
-    prefetcht0 [r13 + rax + 512]
-    prefetcht0 [r12 + rax + 512]
-    prefetcht0 [r11 + rax + 512]
-    prefetcht0 [r10 + rax + 512]
-    prefetcht0 [r9 + rax + 512]
-
-    ;;vecA X
-    vmovaps zmm0, [r14 + rax]
-    vmovaps zmm1, [r14 + rax + 64]
-    vmovaps zmm2, [r14 + rax + 128]
-    vmovaps zmm3, [r14 + rax + 192]
+    mov r14, [rdi] ; vecA X
+    mov r13, [rdi + 8] ; vecA Y
+    mov r12, [rdi + 16]; vecA Z
     
-    ;VecA Y
-    vmovaps zmm4, [r13 + rax]
-    vmovaps zmm5, [r13 + rax + 64]
-    vmovaps zmm6, [r13 + rax + 128]
-    vmovaps zmm7, [r13 + rax + 192]
+    ; Push vecA pointers onto the stack to free up the registers
+    mov [rsp], r14
+    mov [rsp + 8], r13
+    mov [rsp + 16], r12
 
-    ;VecA Z
-    vmovaps zmm8, [r12 + rax]
-    vmovaps zmm9, [r12 + rax + 64]
-    vmovaps zmm10, [r12 + rax + 128]
-    vmovaps zmm11, [r12 + rax + 192]
+    mov r14, [rsi]
+    mov r13, [rsi + 8]
+    mov r12, [rsi + 16]
+
+    mov r11, [rcx]
+    mov r10, [rcx + 8]
+    mov r9,  [rcx + 16]
+
+    xor rax, rax
+%endmacro
+
+%macro LOAD 0 
+    ; Fetching vecA from stack
+    mov rbx, [rsp]
+    vmovaps zmm0, [rbx + rax]
+    vmovaps zmm1, [rbx + rax + 64]
+    vmovaps zmm2, [rbx + rax + 128]
+    vmovaps zmm3, [rbx + rax + 192]
+    
+    mov rbx, [rsp + 8]
+    vmovaps zmm4, [rbx + rax]
+    vmovaps zmm5, [rbx + rax + 64]
+    vmovaps zmm6, [rbx + rax + 128]
+    vmovaps zmm7, [rbx + rax + 192]
+
+    mov rbx, [rsp + 16]
+    vmovaps zmm8,  [rbx + rax]
+    vmovaps zmm9,  [rbx + rax + 64]
+    vmovaps zmm10, [rbx + rax + 128]
+    vmovaps zmm11, [rbx + rax + 192]
    
-    ;;vecB X
-    vmovaps zmm12, [r11 + rax]
-    vmovaps zmm13, [r11 + rax + 64]
-    vmovaps zmm14, [r11 + rax + 128]
-    vmovaps zmm15, [r11 + rax + 192]
+    vmovaps zmm12, [r14 + rax]
+    vmovaps zmm13, [r14 + rax + 64]
+    vmovaps zmm14, [r14 + rax + 128]
+    vmovaps zmm15, [r14 + rax + 192]
     
-    ;VecB Y
-    vmovaps zmm16, [r10 + rax]
-    vmovaps zmm17, [r10 + rax + 64]
-    vmovaps zmm18, [r10 + rax + 128]
-    vmovaps zmm19, [r10 + rax + 192]
+    vmovaps zmm16, [r13 + rax]
+    vmovaps zmm17, [r13 + rax + 64]
+    vmovaps zmm18, [r13 + rax + 128]
+    vmovaps zmm19, [r13 + rax + 192]
 
-    ;VecB Z
-    vmovaps zmm20, [r9 + rax]
-    vmovaps zmm21, [r9 + rax + 64]
-    vmovaps zmm22, [r9 + rax + 128]
-    vmovaps zmm23, [r9 + rax + 192]
-    
-    ;a_x * b_x
-    vmulps zmm0, zmm0, zmm12
-    vmulps zmm1, zmm1, zmm13
-    vmulps zmm2, zmm2, zmm14
-    vmulps zmm3, zmm3, zmm15
+    vmovaps zmm20, [r12 + rax]
+    vmovaps zmm21, [r12 + rax + 64]
+    vmovaps zmm22, [r12 + rax + 128]
+    vmovaps zmm23, [r12 + rax + 192]
+%endmacro
 
-    vfmadd231ps zmm0, zmm4, zmm16
-    vfmadd231ps zmm1, zmm5, zmm17
-    vfmadd231ps zmm2, zmm6, zmm18
-    vfmadd231ps zmm3, zmm7, zmm19
+%macro SAVE 0 
 
-    vfmadd231ps zmm0, zmm8, zmm20
-    vfmadd231ps zmm1, zmm9, zmm21
-    vfmadd231ps zmm2, zmm10, zmm22
-    vfmadd231ps zmm3, zmm11, zmm23
+    vmovntps [r11 + rax], zmm0 
+    vmovntps [r11 + rax + 64], zmm1
+    vmovntps [r11 + rax + 128], zmm2
+    vmovntps [r11 + rax + 192], zmm3
 
-    vmovntps [rcx + rax], zmm0 
-    vmovntps [rcx + rax + 64], zmm1
-    vmovntps [rcx + rax + 128], zmm2
-    vmovntps [rcx + rax + 192], zmm3
+    vmovntps [r10 + rax], zmm4 
+    vmovntps [r10 + rax + 64], zmm5
+    vmovntps [r10 + rax + 128], zmm6
+    vmovntps [r10 + rax + 192], zmm7
 
-    add rax, 256
-    cmp rax, rdx
-    jl .loop
+    vmovntps [r9 + rax], zmm8 
+    vmovntps [r9 + rax + 64], zmm9
+    vmovntps [r9 + rax + 128], zmm10
+    vmovntps [r9 + rax + 192], zmm11
+%endmacro
 
-.exit:
+%macro EXIT 0
+    ;Clean up
+    add rsp, 24
+
+    pop rbx
     pop r15
     pop r14
     pop r13
@@ -107,4 +102,73 @@ dot_product:
     
     sfence
     ret
+%endmacro
+
+section .text 
+
+global vec3_add
+
+vec3_add:
+    FETCH_2
+
+.loop:
+    LOAD 
+    ;; X
+    vaddps zmm0, zmm0, zmm12 
+    vaddps zmm1, zmm1, zmm13
+    vaddps zmm2, zmm2, zmm14
+    vaddps zmm3, zmm3, zmm15
+    
+    ;; Y
+    vaddps zmm4, zmm4, zmm16 
+    vaddps zmm5, zmm5, zmm17
+    vaddps zmm6, zmm6, zmm18
+    vaddps zmm7, zmm7, zmm19
+    
+    ;;Z
+    vaddps zmm8, zmm8, zmm20 
+    vaddps zmm9, zmm9, zmm21
+    vaddps zmm10, zmm10, zmm22
+    vaddps zmm11, zmm11, zmm23
+
+    SAVE   
+
+    add rax, 256
+    cmp rax, rdx
+    jl .loop
+
+.exit:
+    EXIT
+
+global vec3_subtract 
+vec3_subtract:
+
+    FETCH_2
+.loop:
+    LOAD 
+
+    ;; X
+    vsubps zmm0, zmm0, zmm12 
+    vsubps zmm1, zmm1, zmm13
+    vsubps zmm2, zmm2, zmm14
+    vsubps zmm3, zmm3, zmm15
+    ; Y
+    vsubps zmm4, zmm4, zmm16 
+    vsubps zmm5, zmm5, zmm17
+    vsubps zmm6, zmm6, zmm18
+    vsubps zmm7, zmm7, zmm19
+    ;Z
+    vsubps zmm8, zmm8, zmm20 
+    vsubps zmm9, zmm9, zmm21
+    vsubps zmm10, zmm10, zmm22
+    vsubps zmm11, zmm11, zmm23
+
+    SAVE
+
+    add rax, 256
+    cmp rax, rdx
+    jl .loop
+
+.exit:
+    EXIT
 

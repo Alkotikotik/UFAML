@@ -1,5 +1,4 @@
 #include <iostream>
-#include <new>
 
 constexpr int COUNT = 64000000;
 
@@ -9,21 +8,14 @@ struct vec3 {
     float *z;
 };
 
-extern "C" void vec3_add(const vec3 *vecA, const vec3 *vecB, const int count, const vec3 *result);
-extern "C" void vec3_subtract(const vec3 *vecA, const vec3 *vecB, const int count,
-                              const vec3 *result);
+extern "C" void dot_product(const vec3 *vecA, const vec3 *vecB, const int count, float *result);
 
 float *allocate_aligned_floats(size_t count) { return ::new (std::align_val_t{64}) float[count]; }
 
 void free_aligned_floats(float *ptr) { ::operator delete[](ptr, std::align_val_t{64}); }
 
 int main() {
-
-    float *rx = allocate_aligned_floats(COUNT);
-    float *ry = allocate_aligned_floats(COUNT);
-    float *rz = allocate_aligned_floats(COUNT);
-    vec3 result{rx, ry, rz};
-
+    float *result = allocate_aligned_floats(COUNT);
     float *x = allocate_aligned_floats(COUNT);
     float *y = allocate_aligned_floats(COUNT);
     float *z = allocate_aligned_floats(COUNT);
@@ -37,13 +29,13 @@ int main() {
     vec3 vecA{x, y, z};
     vec3 vecB{z, y, x};
 
-    vec3_add(&vecA, &vecB, COUNT, &result);
-    vec3_subtract(&vecA, &vecB, COUNT, &result);
+    dot_product(&vecA, &vecB, COUNT, result);
+
+    std::cout << "Result[0]: " << result[0] << " (Expected: 10.0)" << std::endl;
+    std::cout << "Result[COUNT-1]: " << result[COUNT - 1] << " (Expected: 10.0)" << std::endl;
 
     free_aligned_floats(x);
     free_aligned_floats(y);
     free_aligned_floats(z);
-    free_aligned_floats(rx);
-    free_aligned_floats(ry);
-    free_aligned_floats(rz);
+    free_aligned_floats(result);
 }

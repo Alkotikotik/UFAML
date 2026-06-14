@@ -1,4 +1,3 @@
-#include <chrono>
 #include <cstdlib>
 #include <iostream>
 
@@ -10,15 +9,25 @@ struct vec3 {
     float *__restrict__ z;
 };
 
-// Pure C++ implementation of your dot product engine
-// '__restrict__' tells Clang that the pointers do not overlap,
-// which is crucial for maximizing vectorization.
-void c_dot_product(const vec3 &vecA, const vec3 &vecB, const int count,
-                   float *__restrict__ result) {
-// Force Clang to unroll this 4 times, exactly like your assembly code
-#pragma clang loop vectorize(enable) interleave_count(4)
+// Pure C++ vector addition matching your SoA layout
+void c_vec3_add(const vec3 &vecA, const vec3 &vecB, const int count, vec3 &result) {
+// Explicitly target 512-bit vectors (16 floats * 4 bytes = 64 byte width)
+// and match your exact unroll factor of 4
+#pragma clang loop vectorize(enable) vectorize_width(16) interleave_count(4)
     for (int i = 0; i < count; ++i) {
-        result[i] = (vecA.x[i] * vecB.x[i]) + (vecA.y[i] * vecB.y[i]) + (vecA.z[i] * vecB.z[i]);
+        result.x[i] = vecA.x[i] + vecB.x[i];
+        result.y[i] = vecA.y[i] + vecB.y[i];
+        result.z[i] = vecA.z[i] + vecB.z[i];
+    }
+}
+
+// Pure C++ vector subtraction matching your SoA layout
+void c_vec3_subtract(const vec3 &vecA, const vec3 &vecB, const int count, vec3 &result) {
+#pragma clang loop vectorize(enable) vectorize_width(16) interleave_count(4)
+    for (int i = 0; i < count; ++i) {
+        result.x[i] = vecA.x[i] - vecB.x[i];
+        result.y[i] = vecA.y[i] - vecB.y[i];
+        result.z[i] = vecA.z[i] - vecB.z[i];
     }
 }
 
@@ -31,11 +40,16 @@ float *allocate_aligned_floats(size_t count) {
 }
 
 int main() {
-    float *result = allocate_aligned_floats(COUNT);
+    float *rx = allocate_aligned_floats(COUNT);
+    float *ry = allocate_aligned_floats(COUNT);
+    float *rz = allocate_aligned_floats(COUNT);
+    vec3 result{rx, ry, rz};
+
     float *x = allocate_aligned_floats(COUNT);
     float *y = allocate_aligned_floats(COUNT);
     float *z = allocate_aligned_floats(COUNT);
 
+    // Initialize arrays
     for (size_t i = 0; i < COUNT; ++i) {
         x[i] = 1.0f;
         y[i] = 2.0f;
@@ -45,23 +59,18 @@ int main() {
     vec3 vecA{x, y, z};
     vec3 vecB{z, y, x};
 
-    // Warmup
-    c_dot_product(vecA, vecB, COUNT, result);
+    // Execute the logic sequentially for hyperfine to snapshot
+    c_vec3_add(vecA, vecB, COUNT, result);
+    c_vec3_subtract(vecA, vecB, COUNT, result);
 
-    // Timing the execution inside the driver just for quick output verification
-    auto start = std::chrono::high_resolution_clock::now();
-
-    c_dot_product(vecA, vecB, COUNT, result);
-
-    auto end = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double, std::milli> duration = end - start;
-
-    std::cout << "Result[0]: " << result[0] << "\n";
-    std::cout << "Internal Code Execution Time: " << duration.count() << " ms\n";
+    // Minimal stdout print so compiler doesn't optimize everything away
+    std::cout << "Final Validation Value X[0]: " << result.x[0] << "\n";
 
     std::free(x);
     std::free(y);
     std::free(z);
-    std::free(result);
+    std::free(rx);
+    std::free(ry);
+    std::free(rz);
     return 0;
 }

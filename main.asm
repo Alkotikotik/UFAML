@@ -115,34 +115,8 @@ section .rodata
 
 section .text
 
-global asm_add_vectors_512 
-
-asm_add_vectors_512:
-
-.loop:
-    ;;According to some convention argv = [rdi, rsi, rdx, rcx, r8, r9] then on stack through xmm0-xmm7
-    ;; Though if any of args are float they jump straight into xmm0-xmm7
-    cmp rcx, 0
-    jle .exit
-
-    vmovaps zmm0, [rdi] ;; Vector mov aligned packed float 
-    vmovaps zmm1, [rsi] 
-
-    vaddps zmm2, zmm0, zmm1 ;;Vector add
-
-    vmovaps [rdx], zmm2
-
-    ;; Proccess next chunk 
-    add rdi, 64
-    add rsi, 64
-    add rdx, 64
-    
-    ;;Dec rcx by 16
-    sub rcx, 16
-    jmp .loop
-
-.exit:
-    ret
+;;According to some convention argv = [rdi, rsi, rdx, rcx, r8, r9] then on stack through xmm0-xmm7
+;; Though if any of args are float they jump straight into xmm0-xmm7
 
 global verlet_integration
 
