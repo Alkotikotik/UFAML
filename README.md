@@ -5,7 +5,7 @@ This thing is so fragile since I was aiming at the fastest speed possible so ple
 Proud to say that my code is faster than clang itself:
 | Operation(n particles) | UFAML (User Time) | Clang (User Time) | Speedup Factor |
 | :--- | :---: | :---: | :---: |
-| **Dot Product (64M)** | 52.6 ms | 89.2 ms | **1.85x** |
+| **Dot Product (64M)** | 52.6 ms | 89.2 ms | **1.93x** |
 | **Verlet Integration(64M)** | 207.4ms | 290.3ms | **1.43x** |
 | **Vector Operation(64M)** | 140.2ms | 211.4ms | **1.55x** |
 
