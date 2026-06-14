@@ -1,3 +1,4 @@
+#include <cmath>
 #include <cstdlib>
 #include <iostream>
 
@@ -31,6 +32,17 @@ void c_vec3_subtract(const vec3 &vecA, const vec3 &vecB, const int count, vec3 &
     }
 }
 
+// Pure C++ vector length calculation matching your unrolled layout
+void c_vec3_len(const vec3 &vecA, const int count, float *__restrict__ result) {
+#pragma clang loop vectorize(enable) vectorize_width(16) interleave_count(4)
+    for (int i = 0; i < count; ++i) {
+        float x = vecA.x[i];
+        float y = vecA.y[i];
+        float z = vecA.z[i];
+        result[i] = std::sqrt((x * x) + (y * y) + (z * z));
+    }
+}
+
 float *allocate_aligned_floats(size_t count) {
     void *ptr = nullptr;
     if (posix_memalign(&ptr, 64, count * sizeof(float)) != 0) {
@@ -44,6 +56,8 @@ int main() {
     float *ry = allocate_aligned_floats(COUNT);
     float *rz = allocate_aligned_floats(COUNT);
     vec3 result{rx, ry, rz};
+
+    float *len_result = allocate_aligned_floats(COUNT);
 
     float *x = allocate_aligned_floats(COUNT);
     float *y = allocate_aligned_floats(COUNT);
@@ -62,9 +76,11 @@ int main() {
     // Execute the logic sequentially for hyperfine to snapshot
     c_vec3_add(vecA, vecB, COUNT, result);
     c_vec3_subtract(vecA, vecB, COUNT, result);
+    c_vec3_len(vecA, COUNT, len_result);
 
     // Minimal stdout print so compiler doesn't optimize everything away
     std::cout << "Final Validation Value X[0]: " << result.x[0] << "\n";
+    std::cout << "Final Length Validation Value[0]: " << len_result[0] << "\n";
 
     std::free(x);
     std::free(y);
@@ -72,5 +88,6 @@ int main() {
     std::free(rx);
     std::free(ry);
     std::free(rz);
+    std::free(len_result);
     return 0;
 }

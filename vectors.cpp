@@ -12,6 +12,8 @@ struct vec3 {
 extern "C" void vec3_add(const vec3 *vecA, const vec3 *vecB, const int count, const vec3 *result);
 extern "C" void vec3_subtract(const vec3 *vecA, const vec3 *vecB, const int count,
                               const vec3 *result);
+extern "C" void vec3_len_accurate(const vec3 *vecA, const int count, float *result);
+extern "C" void vec3_len_fast(const vec3 *vecA, const int count, float *result);
 
 float *allocate_aligned_floats(size_t count) { return ::new (std::align_val_t{64}) float[count]; }
 
@@ -28,6 +30,8 @@ int main() {
     float *y = allocate_aligned_floats(COUNT);
     float *z = allocate_aligned_floats(COUNT);
 
+    float *result_len = allocate_aligned_floats(COUNT);
+
     for (size_t i = 0; i < COUNT; ++i) {
         x[i] = 1.0f;
         y[i] = 2.0f;
@@ -39,6 +43,7 @@ int main() {
 
     vec3_add(&vecA, &vecB, COUNT, &result);
     vec3_subtract(&vecA, &vecB, COUNT, &result);
+    vec3_len_fast(&vecA, COUNT, result_len);
 
     free_aligned_floats(x);
     free_aligned_floats(y);
