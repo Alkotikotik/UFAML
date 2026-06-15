@@ -26,3 +26,5 @@ This has been an awesome project. I learned assembler specifically for it, and l
 * **How to use:** Check out the `examples/` directory to see exactly how to set up your pointers and link the compiled assembly object files.
 * **Pass multiple of 64 particles**: Read it again
 
+## Interface 
+There is no interface... If you are actually going to use it and write interface for it, I would appreciate pull request
