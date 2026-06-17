@@ -24,7 +24,7 @@ fft:
     cmp r15, r9
     jge .end_outer
 
-    ;;TODO lead twiddle
+    ;;TODO load twiddle
 
     xor r14, r14
 .loop_inner:
