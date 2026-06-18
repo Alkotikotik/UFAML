@@ -5,7 +5,13 @@
 
 typedef std::complex<double> complex_t;
 
-extern "C" void fft_kernel(complex_t *src, complex_t *dst, complex_t *twiddles, int s, int m);
+struct Manipulator {
+    std::complex<double> __complex;
+    double __real;
+}
+
+extern "C" void
+fft_kernel(Manipulator *src, Manipulator *dst, complex_t *twiddles, int s, int m);
 
 // Computing it here since it is a 1 time operation
 std::vector<complex_t> pre_compute_twiddles(int N) {
@@ -20,7 +26,7 @@ std::vector<complex_t> pre_compute_twiddles(int N) {
 void fft_source(int N, complex_t *x) {
 
     // Temp storage
-    std::vector<complex_t> y(N);
+    Manipulator y;
 
     complex_t *src = x;
     complex_t *dst = y.data();
