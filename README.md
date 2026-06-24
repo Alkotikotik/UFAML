@@ -1,4 +1,4 @@
-# UFAML - Ultra Fast Assembly Math Library
+# UFAML - Ultra Fast Assembly Math Library [WIP]
 
 This thing is fragile since I was aiming for the absolute fastest speed possible, so please read all instructions carefully.
 
