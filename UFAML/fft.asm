@@ -16,11 +16,14 @@ fft:
 
     shl r8, 3 ;for loop enrolling
     shl rcx, 3
-
+    
+    ;;scr
     mov r14, [rdi]
     mov r13, [rdi + 8]
+    ;;dst
     mov r12, [rsi]
     mov r11, [rsi + 8]
+    ;;Twiddles
     mov r10, [rdx]
     mov r9, [rdx + 8]
 
