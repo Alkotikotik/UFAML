@@ -11,7 +11,8 @@ struct cmplx {
     double *imag;
 };
 
-extern "C" void fft_kernel(cmplx src, cmplx dst, cmplx twiddles, int N, int stride);
+extern "C" void fft_kernel(const cmplx *src, const cmplx *dst, const cmplx *twiddles, int N,
+                           int stride);
 
 // Pre compute twiddles, since it is one time operation
 void pre_compute_twiddles(int N, double *twid_real, double *twid_imag) {
@@ -60,7 +61,7 @@ void fft_source(int N, complex_t *x) {
     int pass = 0;
     for (int stride = 1; stride < N; stride *= 16) {
 
-        fft_kernel(src_desc, dst_desc, twid_desc, N, stride);
+        fft_kernel(&src_desc, &dst_desc, &twid_desc, N, stride);
 
         // Increase twiddle pointers
         int twiddles_used_this_pass = 15 * (N / 16);

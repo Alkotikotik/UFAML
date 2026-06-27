@@ -13,8 +13,9 @@ fft:
     push r14
     push r15
     push rbx
-
-    shl r8, 3 ;for loop enrolling
+    
+    ;;Multiplication by 8
+    shl r8, 3
     shl rcx, 3
     
     ;;scr
@@ -39,91 +40,18 @@ fft:
     mov rdx, r8
     dec rdx
     and r15, rdx
+    ;;So r15 = element offset within current block
     
     ;; Similar thing but opposite 
     mov rbx, rax
     not rdx
     and rbx, rdx
+    ;;And rbx = base pointer of current block
     
-    ;;Prepare 
-    mov rdx, rbx
-    shl rdx, 4
-    add rdx, r15
-    
-    ;;Load real
-    vmovapd zmm0,  [r14 + rdx]
-    add rdx, r8
-    vmovapd zmm1,  [r14 + rdx]
-    add rdx, r8
-    vmovapd zmm2,  [r14 + rdx]
-    add rdx, r8
-    vmovapd zmm3,  [r14 + rdx]
-    add rdx, r8
-    vmovapd zmm4,  [r14 + rdx]
-    add rdx, r8
-    vmovapd zmm5,  [r14 + rdx]
-    add rdx, r8
-    vmovapd zmm6,  [r14 + rdx]
-    add rdx, r8
-    vmovapd zmm7,  [r14 + rdx]
-    add rdx, r8
-    vmovapd zmm8,  [r14 + rdx]
-    add rdx, r8
-    vmovapd zmm9,  [r14 + rdx]
-    add rdx, r8
-    vmovapd zmm10, [r14 + rdx]
-    add rdx, r8
-    vmovapd zmm11, [r14 + rdx]
-    add rdx, r8
-    vmovapd zmm12, [r14 + rdx]
-    add rdx, r8
-    vmovapd zmm13, [r14 + rdx]
-    add rdx, r8
-    vmovapd zmm14, [r14 + rdx]
-    add rdx, r8
-    vmovapd zmm15, [r14 + rdx]
-    
-    ;;Prepare
-    mov rdx, rbx
-    shl rdx, 4
-    add rdx, r15
-    
-    ;;Load imaginary
-    vmovapd zmm16, [r13 + rdx]
-    add rdx, r8
-    vmovapd zmm17, [r13 + rdx]
-    add rdx, r8
-    vmovapd zmm18, [r13 + rdx]
-    add rdx, r8
-    vmovapd zmm19, [r13 + rdx]
-    add rdx, r8
-    vmovapd zmm20, [r13 + rdx]
-    add rdx, r8
-    vmovapd zmm21, [r13 + rdx]
-    add rdx, r8
-    vmovapd zmm22, [r13 + rdx]
-    add rdx, r8
-    vmovapd zmm23, [r13 + rdx]
-    add rdx, r8
-    vmovapd zmm24, [r13 + rdx]
-    add rdx, r8
-    vmovapd zmm25, [r13 + rdx]
-    add rdx, r8
-    vmovapd zmm26, [r13 + rdx]
-    add rdx, r8
-    vmovapd zmm27, [r13 + rdx]
-    add rdx, r8
-    vmovapd zmm28, [r13 + rdx]
-    add rdx, r8
-    vmovapd zmm29, [r13 + rdx]
-    add rdx, r8
-    vmovapd zmm30, [r13 + rdx]
-    add rdx, r8
-    vmovapd zmm31, [r13 + rdx]
+    ;;TODO main calculation
 
-
-    add rax, 256
-    cmp rax, r8
+    add rax, 64
+    cmp rax, rcx
     jl .loop
 
 .exit:
