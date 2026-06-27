@@ -5,40 +5,41 @@
 
 typedef std::complex<double> complex_t;
 
-struct Manipulator {
-    std::complex<double> __complex;
-    double __real;
-}
+struct cmplx {
+    double *real;
+    double *imag;
+};
 
-extern "C" void
-fft_kernel(Manipulator *src, Manipulator *dst, complex_t *twiddles, int s, int m);
+extern "C" void fft_kernel(cmplx *src, cmplx *dst, cmplx *twiddles, int N, int stride);
 
 // Computing it here since it is a 1 time operation
-std::vector<complex_t> pre_compute_twiddles(int N) {
-    std::vector<complex_t> twiddles(N);
-    for (int k = 0; k < N; ++k) {
+cmplx pre_compute_twiddles(int N) {
+    cmplx twiddles;
+    for (int i = 0; i < N; ++i) {
         double theta = (2.0 * M_PI * k) / N;
-        twiddles[k] = complex_t(std::cos(theta), -std::sin(theta));
+        twiddles.real = std::cos(theta);
+        twiddles.imag = -std::sin(theta);
     }
     return twiddles;
 }
 
 void fft_source(int N, complex_t *x) {
 
-    // Temp storage
-    Manipulator y;
+    std::vector<cmplx> buffer(N);
 
-    complex_t *src = x;
-    complex_t *dst = y.data();
+    cmplx *src = x;
+    cmplx *dest = buffer.data();
 
-    for (int stride = 1, span = N / 16; span > 0; stride *= 16, span /= 16) {
+    int total_passes = 0;
+    for (int stride = 1; stride < N; stride *= 16) {
 
-        fft_kernel(&src, &dst, &pre_compute_twiddles(N), stride, span);
+        fft_kernel(&src, &dest, &pre_compute_twiddles(N), N, stride);
 
-        std::swap(src, dst);
+        std::swap(src, dest);
+        total_passes++;
     }
 
     if (src != x) {
-        std::copy(y.begin(), y.end(), x);
+        std::copy(buffer.begin(), buffer.end(), x);
     }
 }

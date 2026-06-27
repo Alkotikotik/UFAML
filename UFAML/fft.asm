@@ -1,50 +1,59 @@
-
 section .text 
 
 global fft 
 fft: 
-; rdi = float* src_real
-; rsi = float* src_imag
-; rdx = float* dst_real
-; rcx = float* dst_imag
-; r8  = int stride
-; r9  = int span
+;rdi = *src real, [rdi+8] = imag
+;rsi = *dst real, [rsi+8] = imag
+;rdx = *twiddles real, [rdi+8] = imag
+;rcx = N(of samples)
+;r8 = curret stride
 
-
-    push r15
-    push r14
     push r12
-    sub rsp, 16
+    push r13
+    push r14
+    push r15
+    push rbx
 
-    shl r8, 2
-    shl r9, 2 
+    shl r8, 3 ;for loop enrolling
+    shl rcx, 3
 
+    mov r14, [rdi]
+    mov r13, [rdi + 8]
+    mov r12, [rsi]
+    mov r11, [rsi + 8]
+    mov r10, [rdx]
+    mov r9, [rdx + 8]
 
-    xor r15, r15 
-.loop_outer:
-    cmp r15, r9
-    jge .end_outer
-
-    ;;TODO load twiddle
-
-    xor r14, r14
-.loop_inner:
-    cmp r14, r8
-    jge end_inner
-
-    ;;TODO everything 
+    xor rax, rax
+.loop:
+    prefetcht1 [r14 + rax + 512]
+    prefetcht1 [r13 + rax + 512]
     
+    ;;real
+    vmovaps zmm0, [r14 + rax]
+    vmovaps zmm1, [r14 + rax + 64]
+    vmovaps zmm2, [r14 + rax + 128]
+    vmovaps zmm3, [r14 + rax + 192]
+    
+    ;imag
+    vmovaps zmm4, [r13 + rax]
+    vmovaps zmm5, [r13 + rax + 64]
+    vmovaps zmm6, [r13 + rax + 128]
+    vmovaps zmm7, [r13 + rax + 192]
 
-    add r14, 64
-    jmp loop_outer
-end_inner:
 
-    add r15, 64
-    jmp loop_p
-end_outer:
+    add rax, 256
+    cmp rax, r8
+    jl .loop
 
-    pop r12
-    pop r14
+.exit:
+    sfence
+    pop rbx
     pop r15
+    pop r14
+    pop r13
+    pop r12
     ret
+
+
 
