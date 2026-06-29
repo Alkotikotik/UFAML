@@ -262,12 +262,12 @@ fft:
     mov zmm0, [rsp-64]
     ;;Seems pretty readable
     
-    ;;I treat radix 16 as 2d complex matrix 4x4 such: zmm{real-complex}
+    ;;I treat radix 16 as 2d complex matrix 4x4 such: zmm{real,complex}
     ;+---------------------------------------+
-    ;|zmm0-16  |zmm4-20  |zmm8-24   |zmm12-28|
-    ;|zmm1-17  |zmm5-21  |zmm9-25   |zmm13-29|
-    ;|zmm2-18  |zmm6-22  |zmm10-26  |zmm14-30|
-    ;|zmm3-19  |zmm7-23  |zmm11-27  |zmm15-31|
+    ;|zmm0,16  |zmm4,20  |zmm8,24   |zmm12,28|
+    ;|zmm1,17  |zmm5,21  |zmm9,25   |zmm13,29|
+    ;|zmm2,18  |zmm6,22  |zmm10,26  |zmm14,30|
+    ;|zmm3,19  |zmm7,23  |zmm11,27  |zmm15,31|
     ;+---------------------------------------+
     ;(I should probably get to coding)
     ;
@@ -439,6 +439,3 @@ fft:
     pop r13
     pop r12
     ret
-
-
-
