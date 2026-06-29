@@ -15,25 +15,28 @@ extern "C" void fft_kernel(const cmplx *src, const cmplx *dst, const cmplx *twid
                            int stride);
 
 // Pre compute twiddles, since it is one time operation
-void pre_compute_twiddles(int N, double *twid_real, double *twid_imag) {
+void pre_compute_twiddles_vectorized(int N, double *twid_real, double *twid_imag) {
     int idx = 0;
     for (int stride = 1; stride < N; stride *= 16) {
         int num_blocks = N / (stride * 16);
+
         for (int b = 0; b < num_blocks; ++b) {
-            for (int i = 0; i < stride; ++i) {
-                int j = b * stride + i;
+            for (int i = 0; i < stride; i += 8) {
 
                 for (int k = 1; k <= 15; ++k) {
-                    double theta = (2.0 * M_PI * j * k) / (stride * 16);
-                    twid_real[idx] = std::cos(theta);
-                    twid_imag[idx] = -std::sin(theta);
-                    idx++;
+                    for (int v = 0; v < 8; ++v) {
+                        int j = b * stride + (i + v);
+                        double theta = (2.0 * M_PI * j * k) / (stride * 16);
+
+                        twid_real[idx] = std::cos(theta);
+                        twid_imag[idx] = -std::sin(theta);
+                        idx++;
+                    }
                 }
             }
         }
     }
 }
-
 void fft_source(int N, complex_t *x) {
     // Init
     std::vector<double> src_real(N), src_imag(N);
