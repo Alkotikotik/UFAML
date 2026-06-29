@@ -13,6 +13,9 @@ Proud to say that my handwritten code effortlessly beats Clang:
 
 Don't worry, I used all the max Clang flags: `clang++ -O3 -march=native -ffast-math -std=c++17`, yet my code is still faster. Without these flags on Clang's side, my code runs 3-5x faster or even more. I used `hyperfine` for my benchmarks you can run them yourself if you don't believe me.
 
+## Radix-16 Stockham Fast-Fourier Transform
+This is the best part of this project, I read a whole digital signal theory book and a lot of my own research to implement it, and it turned out to be awesome, however I do understand that radix-8 would have been faster because of lack of manipulations with the stack, but radix-16 is much cooler, because it introduces more challenges and manipulations with the stack, which I really loved solving
+
 ## Optimization 
 I would have said that I spent a lot of time optimizing, only if I actually had to. Before even writing a single line of code, I spent a ton of time studying the best hardware optimization techniques and learning exactly how compilers optimize code. Because of that, I went straight to writing ultra-optimized assembly, and it paid off perfectly.
 

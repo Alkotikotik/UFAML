@@ -261,8 +261,169 @@ fft:
 
     mov zmm0, [rsp-64]
     ;;Seems pretty readable
+    
+    ;;I treat radix 16 as 2d complex matrix 4x4 such: zmm{real-complex}
+    ;+---------------------------------------+
+    ;|zmm0-16  |zmm4-20  |zmm8-24   |zmm12-28|
+    ;|zmm1-17  |zmm5-21  |zmm9-25   |zmm13-29|
+    ;|zmm2-18  |zmm6-22  |zmm10-26  |zmm14-30|
+    ;|zmm3-19  |zmm7-23  |zmm11-27  |zmm15-31|
+    ;+---------------------------------------+
+    ;(I should probably get to coding)
+    ;
+    ;Formulas
+    ;X_0 = x_0 + x_1 + x_2 + x_3
+    ;X_1 = x_0 - ix_1 - x_2 + ix_3
+    ;X_2 = x_0 - x_1 + x_2 - x_3
+    ;X_3 = x_0 + ix_1 + x_2 - ix_3
 
 
+    ;1.
+    ;Real inputs: zmm0, zmm4, zmm8, zmm12
+    ;Imag inputs: zmm16, zmm20, zmm24, zmm28 
+
+    ;reserve 
+    vmovapd [rsp - 576], zmm15
+    vmovapd [rsp - 640], zmm31
+    
+    ; --Real-- intermid
+    vaddpd zmm15, zmm0, zmm8
+    vmovapd [rsp - 64], zmm15
+    vsubpd zmm15, zmm0, zmm8
+    vmovapd [rsp - 128], zmm15
+
+    vaddpd zmm15, zmm4, zmm12
+    vmovapd [rsp - 192], zmm15
+    vsubpd zmm15, zmm4, zmm12 
+    vmovapd [rsp - 256], zmm15
+
+    ;; --Imag-- intermid
+    vaddpd zmm15, zmm16, zmm24
+    vmovapd [rsp - 320], zmm15
+    vsubpd zmm15, zmm16, zmm24
+    vmovapd [rsp - 384], zmm15
+
+    vaddpd zmm15, zmm20, zmm28
+    vmovapd [rsp - 448], zmm15
+    vsubpd zmm15, zmm20, zmm28 
+    vmovapd [rsp - 512], zmm15
+
+    ;;Avangeres assemble 
+    vaddpd zmm0,  [rsp - 64],  [rsp - 192]
+    vaddpd zmm16, [rsp - 320], [rsp - 448]
+    vsubpd zmm8,  [rsp - 64],  [rsp - 192]
+    vsubpd zmm24, [rsp - 320], [rsp - 448]
+
+    vaddpd zmm4,  [rsp - 128], [rsp - 512]
+    vsubpd zmm20, [rsp - 384], [rsp - 256]
+    vsubpd zmm12, [rsp - 128], [rsp - 512]
+    vaddpd zmm28, [rsp - 384], [rsp - 256]
+
+
+    ;2.
+    ;Real inputs: zmm1, zmm5, zmm9, zmm13
+    ;Imag inputs: zmm17, zmm21, zmm25, zmm29 
+    vaddpd zmm15, zmm1, zmm9
+    vmovapd [rsp - 64], zmm15
+    vsubpd zmm15, zmm1, zmm9
+    vmovapd [rsp - 128], zmm15
+
+    vaddpd zmm15, zmm5, zmm13
+    vmovapd [rsp - 192], zmm15
+    vsubpd zmm15, zmm5, zmm13
+    vmovapd [rsp - 256], zmm15
+
+    vaddpd zmm15, zmm17, zmm25
+    vmovapd [rsp - 320], zmm15
+    vsubpd zmm15, zmm17, zmm25
+    vmovapd [rsp - 384], zmm15
+
+    vaddpd zmm15, zmm21, zmm29
+    vmovapd [rsp - 448], zmm15
+    vsubpd zmm15, zmm21, zmm29
+    vmovapd [rsp - 512], zmm15
+
+    vaddpd zmm1,  [rsp - 64],  [rsp - 192]
+    vaddpd zmm17, [rsp - 320], [rsp - 448]
+    vsubpd zmm9,  [rsp - 64],  [rsp - 192]
+    vsubpd zmm25, [rsp - 320], [rsp - 448]
+
+    vaddpd zmm5,  [rsp - 128], [rsp - 512]
+    vsubpd zmm21, [rsp - 384], [rsp - 256]
+    vsubpd zmm13, [rsp - 128], [rsp - 512]
+    vaddpd zmm29, [rsp - 384], [rsp - 256]
+
+    ;3.
+    ;Real inputs: zmm2, zmm6, zmm10, zmm14
+    ;Imag inputs: zmm18, zmm22, zmm26, zmm30
+    vaddpd zmm15, zmm2, zmm10
+    vmovapd [rsp - 64], zmm15
+    vsubpd zmm15, zmm2, zmm10
+    vmovapd [rsp - 128], zmm15
+
+    vaddpd zmm15, zmm6, zmm14
+    vmovapd [rsp - 192], zmm15
+    vsubpd zmm15, zmm6, zmm14
+    vmovapd [rsp - 256], zmm15
+
+    vaddpd zmm15, zmm18, zmm26
+    vmovapd [rsp - 320], zmm15
+    vsubpd zmm15, zmm18, zmm26
+    vmovapd [rsp - 384], zmm15
+
+    vaddpd zmm15, zmm22, zmm30
+    vmovapd [rsp - 448], zmm15
+    vsubpd zmm15, zmm22, zmm30
+    vmovapd [rsp - 512], zmm15
+
+    vaddpd zmm2,  [rsp - 64],  [rsp - 192]
+    vaddpd zmm18, [rsp - 320], [rsp - 448]
+    vsubpd zmm10, [rsp - 64],  [rsp - 192]
+    vsubpd zmm26, [rsp - 320], [rsp - 448]
+    
+    vaddpd zmm6,  [rsp - 128], [rsp - 512]
+    vsubpd zmm22, [rsp - 384], [rsp - 256]
+    vsubpd zmm14, [rsp - 128], [rsp - 512]
+    vaddpd zmm30, [rsp - 384], [rsp - 256]
+
+    ;4.
+    ;Real inputs: zmm3, zmm7, zmm11, [rsp - 576] (just realized I can do this)
+    ;Imag inputs: zmm19, zmm23, zmm27, [rsp - 640]
+    vaddpd zmm15, zmm3, zmm11
+    vmovapd [rsp - 64], zmm15
+    vsubpd zmm15, zmm3, zmm11
+    vmovapd [rsp - 128], zmm15
+    
+    vaddpd zmm15, zmm7, [rsp - 576]
+    vmovapd [rsp - 192], zmm15
+    vsubpd zmm15, zmm7, [rsp - 576]
+    vmovapd [rsp - 256], zmm15
+
+    vaddpd zmm15, zmm19, zmm27
+    vmovapd [rsp - 320], zmm15
+    vsubpd zmm15, zmm19, zmm27
+    vmovapd [rsp - 384], zmm15
+    
+    vaddpd zmm15, zmm23, [rsp - 640]
+    vmovapd [rsp - 448], zmm15
+    vsubpd zmm15, zmm23, [rsp - 640]
+    vmovapd [rsp - 512], zmm15
+
+    vaddpd zmm3,  [rsp - 64],  [rsp - 192]
+    vaddpd zmm19, [rsp - 320], [rsp - 448]
+
+    vsubpd zmm11, [rsp - 64],  [rsp - 192]
+    vsubpd zmm27, [rsp - 320], [rsp - 448]
+
+    vaddpd zmm7,  [rsp - 128], [rsp - 512]
+    vsubpd zmm23, [rsp - 384], [rsp - 256]
+    
+    vsubpd zmm15, [rsp - 128], [rsp - 512]
+    vmovapd [rsp - 576], zmm15
+    vaddpd zmm15, [rsp - 384], [rsp - 256]
+    vmovapd [rsp - 640], zmm15
+
+    
     add rax, 64
     add rbp, 960
     cmp rax, rcx
