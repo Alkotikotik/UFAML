@@ -305,132 +305,102 @@ fft_kernel:
     
     ; --Real-- intermid
     vaddpd zmm15, zmm0, zmm8
-    vmovupd [rsp - 64], zmm15
-    vsubpd zmm15, zmm0, zmm8
-    vmovupd [rsp - 128], zmm15
+    vsubpd zmm8, zmm0, zmm8
+    vaddpd zmm0, zmm4, zmm12
+    vsubpd zmm12, zmm4, zmm12
 
-    vaddpd zmm15, zmm4, zmm12
-    vmovupd [rsp - 192], zmm15
-    vsubpd zmm15, zmm4, zmm12 
-    vmovupd [rsp - 256], zmm15
+    vsubpd zmm4, zmm15, zmm0
+    vaddpd zmm0, zmm15, zmm0
 
     ;; --Imag-- intermid
-    vaddpd zmm15, zmm16, zmm24
-    vmovupd [rsp - 320], zmm15
-    vsubpd zmm15, zmm16, zmm24
-    vmovupd [rsp - 384], zmm15
+    vaddpd zmm31, zmm16, zmm24
+    vsubpd zmm24, zmm16, zmm24
+    vaddpd zmm16, zmm20, zmm28
+    vsubpd zmm28, zmm20, zmm28
 
-    vaddpd zmm15, zmm20, zmm28
-    vmovupd [rsp - 448], zmm15
-    vsubpd zmm15, zmm20, zmm28 
-    vmovupd [rsp - 512], zmm15
+    vsubpd zmm20, zmm31, zmm16
+    vaddpd zmm16, zmm31, zmm16
 
     ;;Avangeres assemble-
-    vmovupd zmm0,  [rsp - 64]
-    vmovupd zmm16, [rsp - 320]
-    vmovupd zmm8,  [rsp - 64]
-    vmovupd zmm24, [rsp - 320]
+    vaddpd zmm15, zmm8, zmm28
+    vsubpd zmm8, zmm8, zmm28
 
-    vaddpd zmm0, zmm0,   [rsp - 192]
-    vaddpd zmm16, zmm16, [rsp - 448]
-    vsubpd zmm8, zmm8,   [rsp - 192]
-    vsubpd zmm24, zmm24, [rsp - 448]
+    vsubpd zmm31, zmm24, zmm12
+    vaddpd zmm24, zmm24, zmm12
 
-    vmovupd zmm4,  [rsp - 128]
-    vmovupd zmm20, [rsp - 384]
-    vmovupd zmm12, [rsp - 128]
-    vmovupd zmm28, [rsp - 384]
+    vmovupd zmm12, zmm8
+    vmovupd zmm8, zmm4
+    vmovupd zmm4, zmm15
 
-    vaddpd zmm4, zmm4,   [rsp - 512]
-    vsubpd zmm20, zmm20, [rsp - 256]
-    vsubpd zmm12, zmm12, [rsp - 512]
-    vaddpd zmm28, zmm28, [rsp - 256]
+    vmovupd zmm28, zmm24
+    vmovupd zmm24, zmm20
+    vmovupd zmm20, zmm31
 
     ;1.
     ;Real inputs: zmm1, zmm5, zmm9, zmm13
     ;Imag inputs: zmm17, zmm21, zmm25, zmm29 
     vaddpd zmm15, zmm1, zmm9
-    vmovupd [rsp - 64], zmm15
-    vsubpd zmm15, zmm1, zmm9
-    vmovupd [rsp - 128], zmm15
+    vsubpd zmm9, zmm1, zmm9
+    vaddpd zmm1, zmm5, zmm13
+    vsubpd zmm13, zmm5, zmm13
 
-    vaddpd zmm15, zmm5, zmm13
-    vmovupd [rsp - 192], zmm15
-    vsubpd zmm15, zmm5, zmm13
-    vmovupd [rsp - 256], zmm15
+    vsubpd zmm5, zmm15, zmm1
+    vaddpd zmm1, zmm15, zmm1
 
-    vaddpd zmm15, zmm17, zmm25
-    vmovupd [rsp - 320], zmm15
-    vsubpd zmm15, zmm17, zmm25
-    vmovupd [rsp - 384], zmm15
+    vaddpd zmm31, zmm17, zmm25
+    vsubpd zmm25, zmm17, zmm25
+    vaddpd zmm17, zmm21, zmm29
+    vsubpd zmm29, zmm21, zmm29
 
-    vaddpd zmm15, zmm21, zmm29
-    vmovupd [rsp - 448], zmm15
-    vsubpd zmm15, zmm21, zmm29
-    vmovupd [rsp - 512], zmm15
+    vsubpd zmm21, zmm31, zmm17
+    vaddpd zmm17, zmm31, zmm17
 
-    vmovupd zmm1,  [rsp - 64 ]
-    vmovupd zmm17, [rsp - 320]
-    vmovupd zmm9,  [rsp - 64 ]
-    vmovupd zmm25, [rsp - 320]
+    vaddpd zmm15, zmm9, zmm29
+    vsubpd zmm9, zmm9, zmm29
 
-    vaddpd zmm1, zmm1,   [rsp - 192]
-    vaddpd zmm17, zmm17, [rsp - 448]
-    vsubpd zmm9, zmm9,   [rsp - 192]
-    vsubpd zmm25, zmm25, [rsp - 448]
+    vsubpd zmm31, zmm25, zmm13
+    vaddpd zmm25, zmm25, zmm13
 
-    vmovupd zmm5,  [rsp - 128]
-    vmovupd zmm21, [rsp - 384]
-    vmovupd zmm13, [rsp - 128]
-    vmovupd zmm29, [rsp - 384]
+    vmovupd zmm13, zmm9
+    vmovupd zmm9, zmm5
+    vmovupd zmm5, zmm15
 
-    vaddpd zmm5, zmm5,   [rsp - 512]
-    vsubpd zmm21, zmm21, [rsp - 256]
-    vsubpd zmm13, zmm13, [rsp - 512]
-    vaddpd zmm29, zmm29, [rsp - 256]
+    vmovupd zmm29, zmm25
+    vmovupd zmm25, zmm21
+    vmovupd zmm21, zmm31
 
     ;2.
     ;Real inputs: zmm2, zmm6, zmm10, zmm14
     ;Imag inputs: zmm18, zmm22, zmm26, zmm30
     vaddpd zmm15, zmm2, zmm10
-    vmovupd [rsp - 64], zmm15
-    vsubpd zmm15, zmm2, zmm10
-    vmovupd [rsp - 128], zmm15
+    vsubpd zmm10, zmm2, zmm10
+    vaddpd zmm2, zmm6, zmm14
+    vsubpd zmm14, zmm6, zmm14
 
-    vaddpd zmm15, zmm6, zmm14
-    vmovupd [rsp - 192], zmm15
-    vsubpd zmm15, zmm6, zmm14
-    vmovupd [rsp - 256], zmm15
+    vsubpd zmm6, zmm15, zmm2
+    vaddpd zmm2, zmm15, zmm2
 
-    vaddpd zmm15, zmm18, zmm26
-    vmovupd [rsp - 320], zmm15
-    vsubpd zmm15, zmm18, zmm26
-    vmovupd [rsp - 384], zmm15
+    vaddpd zmm31, zmm18, zmm26
+    vsubpd zmm26, zmm18, zmm26
+    vaddpd zmm18, zmm22, zmm30
+    vsubpd zmm30, zmm22, zmm30
 
-    vaddpd zmm15, zmm22, zmm30
-    vmovupd [rsp - 448], zmm15
-    vsubpd zmm15, zmm22, zmm30
-    vmovupd [rsp - 512], zmm15
+    vsubpd zmm22, zmm31, zmm18
+    vaddpd zmm18, zmm31, zmm18
 
-    vmovupd zmm2,  [rsp - 64 ]
-    vmovupd zmm18, [rsp - 320]
-    vmovupd zmm10, [rsp - 64 ]
-    vmovupd zmm26, [rsp - 320]
+    vaddpd zmm15, zmm10, zmm30
+    vsubpd zmm10, zmm10, zmm30
 
-    vaddpd zmm2, zmm2,   [rsp - 192]
-    vaddpd zmm18, zmm18, [rsp - 448]
-    vsubpd zmm10, zmm10, [rsp - 192]
-    vsubpd zmm26, zmm26, [rsp - 448]
-    
-    vmovupd zmm6,  [rsp - 128]
-    vmovupd zmm22, [rsp - 384]
-    vmovupd zmm14, [rsp - 128]
-    vmovupd zmm30, [rsp - 384]
+    vsubpd zmm31, zmm26, zmm14
+    vaddpd zmm26, zmm26, zmm14
 
-    vaddpd zmm6, zmm6,   [rsp - 512]
-    vsubpd zmm22, zmm22, [rsp - 256]
-    vsubpd zmm14, zmm14, [rsp - 512]
-    vaddpd zmm30, zmm30, [rsp - 256]
+    vmovupd zmm14, zmm10
+    vmovupd zmm10, zmm6
+    vmovupd zmm6, zmm15
+
+    vmovupd zmm30, zmm26
+    vmovupd zmm26, zmm22
+    vmovupd zmm22, zmm31
 
     ;3.
     ;Real inputs: zmm3, zmm7, zmm11, [rsp - 576] (just realized I can do this)
@@ -570,130 +540,100 @@ fft_kernel:
     ;Real inputs: zmm0, zmm1, zmm2, zmm3
     ;Imag inputs: zmm16, zmm17, zmm18, zmm19
     vaddpd zmm15, zmm0, zmm2
-    vmovupd [rsp - 64], zmm15
-    vsubpd zmm15, zmm0, zmm2
-    vmovupd [rsp - 128], zmm15
+    vsubpd zmm2, zmm0, zmm2
+    vaddpd zmm0, zmm1, zmm3
+    vsubpd zmm3, zmm1, zmm3
 
-    vaddpd zmm15, zmm1, zmm3
-    vmovupd [rsp - 192], zmm15
-    vsubpd zmm15, zmm1, zmm3
-    vmovupd [rsp - 256], zmm15
+    vsubpd zmm1, zmm15, zmm0
+    vaddpd zmm0, zmm15, zmm0
 
-    vaddpd zmm15, zmm16, zmm18
-    vmovupd [rsp - 320], zmm15
-    vsubpd zmm15, zmm16, zmm18
-    vmovupd [rsp - 384], zmm15
+    vaddpd zmm31, zmm16, zmm18
+    vsubpd zmm18, zmm16, zmm18
+    vaddpd zmm16, zmm17, zmm19
+    vsubpd zmm19, zmm17, zmm19
 
-    vaddpd zmm15, zmm17, zmm19
-    vmovupd [rsp - 448], zmm15
-    vsubpd zmm15, zmm17, zmm19
-    vmovupd [rsp - 512], zmm15
+    vsubpd zmm17, zmm31, zmm16
+    vaddpd zmm16, zmm31, zmm16
 
-    vmovupd zmm0,  [rsp - 64]
-    vmovupd zmm16, [rsp - 320]
-    vmovupd zmm2,  [rsp - 64]
-    vmovupd zmm18, [rsp - 320]
+    vaddpd zmm15, zmm2, zmm19
+    vsubpd zmm2, zmm2, zmm19
 
-    vaddpd zmm0, zmm0,   [rsp - 192]
-    vaddpd zmm16, zmm16, [rsp - 448]
-    vsubpd zmm2, zmm2,   [rsp - 192]
-    vsubpd zmm18, zmm18, [rsp - 448]
+    vsubpd zmm31, zmm18, zmm3
+    vaddpd zmm18, zmm18, zmm3
 
-    vmovupd zmm1,  [rsp - 128]
-    vmovupd zmm17, [rsp - 384]
-    vmovupd zmm3,  [rsp - 128]
-    vmovupd zmm19, [rsp - 384]
+    vmovupd zmm3, zmm2
+    vmovupd zmm2, zmm1
+    vmovupd zmm1, zmm15
 
-    vaddpd zmm1, zmm1,   [rsp - 512]
-    vsubpd zmm17, zmm17, [rsp - 256]
-    vsubpd zmm3, zmm3,   [rsp - 512]
-    vaddpd zmm19, zmm19, [rsp - 256]
+    vmovupd zmm19, zmm18
+    vmovupd zmm18, zmm17
+    vmovupd zmm17, zmm31
 
     ;1.
     ;Real inputs: zmm4, zmm5, zmm6, zmm7
     ;Imag inputs: zmm20, zmm21, zmm22, zmm23
     vaddpd zmm15, zmm4, zmm6
-    vmovupd [rsp - 64], zmm15
-    vsubpd zmm15, zmm4, zmm6
-    vmovupd [rsp - 128], zmm15
+    vsubpd zmm6, zmm4, zmm6
+    vaddpd zmm4, zmm5, zmm7
+    vsubpd zmm7, zmm5, zmm7
 
-    vaddpd zmm15, zmm5, zmm7
-    vmovupd [rsp - 192], zmm15
-    vsubpd zmm15, zmm5, zmm7
-    vmovupd [rsp - 256], zmm15
+    vsubpd zmm5, zmm15, zmm4
+    vaddpd zmm4, zmm15, zmm4
 
-    vaddpd zmm15, zmm20, zmm22
-    vmovupd [rsp - 320], zmm15
-    vsubpd zmm15, zmm20, zmm22
-    vmovupd [rsp - 384], zmm15
+    vaddpd zmm31, zmm20, zmm22
+    vsubpd zmm22, zmm20, zmm22
+    vaddpd zmm20, zmm21, zmm23
+    vsubpd zmm23, zmm21, zmm23
 
-    vaddpd zmm15, zmm21, zmm23
-    vmovupd [rsp - 448], zmm15
-    vsubpd zmm15, zmm21, zmm23
-    vmovupd [rsp - 512], zmm15
+    vsubpd zmm21, zmm31, zmm20
+    vaddpd zmm20, zmm31, zmm20
 
-    vmovupd zmm4,  [rsp - 64]
-    vmovupd zmm20, [rsp - 320]
-    vmovupd zmm6,  [rsp - 64]
-    vmovupd zmm22, [rsp - 320]
+    vaddpd zmm15, zmm6, zmm23
+    vsubpd zmm6, zmm6, zmm23
 
-    vaddpd zmm4, zmm4,   [rsp - 192]
-    vaddpd zmm20, zmm20, [rsp - 448]
-    vsubpd zmm6, zmm6,   [rsp - 192]
-    vsubpd zmm22, zmm22, [rsp - 448]
+    vsubpd zmm31, zmm22, zmm7
+    vaddpd zmm22, zmm22, zmm7
 
-    vmovupd zmm5,  [rsp - 128]
-    vmovupd zmm21, [rsp - 384]
-    vmovupd zmm7,  [rsp - 128]
-    vmovupd zmm23, [rsp - 384]
+    vmovupd zmm7, zmm6
+    vmovupd zmm6, zmm5
+    vmovupd zmm5, zmm15
 
-    vaddpd zmm5, zmm5,   [rsp - 512]
-    vsubpd zmm21, zmm21, [rsp - 256]
-    vsubpd zmm7, zmm7,   [rsp - 512]
-    vaddpd zmm23, zmm23, [rsp - 256]
+    vmovupd zmm23, zmm22
+    vmovupd zmm22, zmm21
+    vmovupd zmm21, zmm31
 
     ;2.
     ;Real inputs: zmm8, zmm9, zmm10, zmm11
     ;Imag inputs: zmm24, zmm25, zmm26, zmm27
     vaddpd zmm15, zmm8, zmm10
-    vmovupd [rsp - 64], zmm15
-    vsubpd zmm15, zmm8, zmm10
-    vmovupd [rsp - 128], zmm15
+    vsubpd zmm10, zmm8, zmm10
+    vaddpd zmm8, zmm9, zmm11
+    vsubpd zmm11, zmm9, zmm11
 
-    vaddpd zmm15, zmm9, zmm11
-    vmovupd [rsp - 192], zmm15
-    vsubpd zmm15, zmm9, zmm11
-    vmovupd [rsp - 256], zmm15
+    vsubpd zmm9, zmm15, zmm8
+    vaddpd zmm8, zmm15, zmm8
 
-    vaddpd zmm15, zmm24, zmm26
-    vmovupd [rsp - 320], zmm15
-    vsubpd zmm15, zmm24, zmm26
-    vmovupd [rsp - 384], zmm15
+    vaddpd zmm31, zmm24, zmm26
+    vsubpd zmm26, zmm24, zmm26
+    vaddpd zmm24, zmm25, zmm27
+    vsubpd zmm27, zmm25, zmm27
 
-    vaddpd zmm15, zmm25, zmm27
-    vmovupd [rsp - 448], zmm15
-    vsubpd zmm15, zmm25, zmm27
-    vmovupd [rsp - 512], zmm15
+    vsubpd zmm25, zmm31, zmm24
+    vaddpd zmm24, zmm31, zmm24
 
-    vmovupd zmm8,  [rsp - 64]
-    vmovupd zmm24, [rsp - 320]
-    vmovupd zmm10, [rsp - 64]
-    vmovupd zmm26, [rsp - 320]
+    vaddpd zmm15, zmm10, zmm27
+    vsubpd zmm10, zmm10, zmm27
 
-    vaddpd zmm8, zmm8,   [rsp - 192]
-    vaddpd zmm24, zmm24, [rsp - 448]
-    vsubpd zmm10, zmm10, [rsp - 192]
-    vsubpd zmm26, zmm26, [rsp - 448]
+    vsubpd zmm31, zmm26, zmm11
+    vaddpd zmm26, zmm26, zmm11
 
-    vmovupd zmm9,  [rsp - 128]
-    vmovupd zmm25, [rsp - 384]
-    vmovupd zmm11, [rsp - 128]
-    vmovupd zmm27, [rsp - 384]
+    vmovupd zmm11, zmm10
+    vmovupd zmm10, zmm9
+    vmovupd zmm9, zmm15
 
-    vaddpd zmm9, zmm9,   [rsp - 512]
-    vsubpd zmm25, zmm25, [rsp - 256]
-    vsubpd zmm11, zmm11, [rsp - 512]
-    vaddpd zmm27, zmm27, [rsp - 256]
+    vmovupd zmm27, zmm26
+    vmovupd zmm26, zmm25
+    vmovupd zmm25, zmm31
 
     ;3.
     ;Real inputs: zmm12, zmm13, zmm14, [rsp - 576]

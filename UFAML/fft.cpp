@@ -65,7 +65,7 @@ int main() {
     _mm_setcsr(_mm_getcsr() | 0x8040);
 
     const int N = 65536;
-    const int BENCHMARK_ITERATIONS = 10000;
+    const int BENCHMARK_ITERATIONS = 1000;
 
     cmplx input_data;
     input_data.real = allocate_aligned_doubles(N);
