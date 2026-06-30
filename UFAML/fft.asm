@@ -1,3 +1,12 @@
+section .rodata
+    align 64
+    SIGN_MASK:          dq 0x8000000000000000 ;;To flip the sign
+    SQRT_2_DIV_2:       dq 0.7071067811865476 ;;Somewhat accurate
+    SQRT_2_DIV_2_NEG:   dq -0.7071067811865476
+    COS_PI_8:           dq 0.9238795325112867
+    COS_PI_8_NEG:       dq -0.9238795325112867
+    SIN_PI_8:           dq 0.3826834323650898
+
 section .text 
 
 global fft 
@@ -278,7 +287,7 @@ fft:
     ;X_3 = x_0 + ix_1 + x_2 - ix_3
 
 
-    ;1.
+    ;0.
     ;Real inputs: zmm0, zmm4, zmm8, zmm12
     ;Imag inputs: zmm16, zmm20, zmm24, zmm28 
 
@@ -309,9 +318,9 @@ fft:
     vmovapd [rsp - 512], zmm15
 
     ;;Avangeres assemble 
-    vaddpd zmm0,  [rsp - 64],  [rsp - 192]
+    vaddpd zmm0,  [rsp - 64 ], [rsp - 192]
     vaddpd zmm16, [rsp - 320], [rsp - 448]
-    vsubpd zmm8,  [rsp - 64],  [rsp - 192]
+    vsubpd zmm8,  [rsp - 64 ], [rsp - 192]
     vsubpd zmm24, [rsp - 320], [rsp - 448]
 
     vaddpd zmm4,  [rsp - 128], [rsp - 512]
@@ -320,7 +329,7 @@ fft:
     vaddpd zmm28, [rsp - 384], [rsp - 256]
 
 
-    ;2.
+    ;1.
     ;Real inputs: zmm1, zmm5, zmm9, zmm13
     ;Imag inputs: zmm17, zmm21, zmm25, zmm29 
     vaddpd zmm15, zmm1, zmm9
@@ -343,9 +352,9 @@ fft:
     vsubpd zmm15, zmm21, zmm29
     vmovapd [rsp - 512], zmm15
 
-    vaddpd zmm1,  [rsp - 64],  [rsp - 192]
+    vaddpd zmm1,  [rsp - 64 ], [rsp - 192]
     vaddpd zmm17, [rsp - 320], [rsp - 448]
-    vsubpd zmm9,  [rsp - 64],  [rsp - 192]
+    vsubpd zmm9,  [rsp - 64 ], [rsp - 192]
     vsubpd zmm25, [rsp - 320], [rsp - 448]
 
     vaddpd zmm5,  [rsp - 128], [rsp - 512]
@@ -353,7 +362,7 @@ fft:
     vsubpd zmm13, [rsp - 128], [rsp - 512]
     vaddpd zmm29, [rsp - 384], [rsp - 256]
 
-    ;3.
+    ;2.
     ;Real inputs: zmm2, zmm6, zmm10, zmm14
     ;Imag inputs: zmm18, zmm22, zmm26, zmm30
     vaddpd zmm15, zmm2, zmm10
@@ -376,9 +385,9 @@ fft:
     vsubpd zmm15, zmm22, zmm30
     vmovapd [rsp - 512], zmm15
 
-    vaddpd zmm2,  [rsp - 64],  [rsp - 192]
+    vaddpd zmm2,  [rsp - 64 ], [rsp - 192]
     vaddpd zmm18, [rsp - 320], [rsp - 448]
-    vsubpd zmm10, [rsp - 64],  [rsp - 192]
+    vsubpd zmm10, [rsp - 64 ], [rsp - 192]
     vsubpd zmm26, [rsp - 320], [rsp - 448]
     
     vaddpd zmm6,  [rsp - 128], [rsp - 512]
@@ -386,7 +395,7 @@ fft:
     vsubpd zmm14, [rsp - 128], [rsp - 512]
     vaddpd zmm30, [rsp - 384], [rsp - 256]
 
-    ;4.
+    ;3.
     ;Real inputs: zmm3, zmm7, zmm11, [rsp - 576] (just realized I can do this)
     ;Imag inputs: zmm19, zmm23, zmm27, [rsp - 640]
     vaddpd zmm15, zmm3, zmm11
@@ -409,12 +418,10 @@ fft:
     vsubpd zmm15, zmm23, [rsp - 640]
     vmovapd [rsp - 512], zmm15
 
-    vaddpd zmm3,  [rsp - 64],  [rsp - 192]
+    vaddpd zmm3,  [rsp - 64 ], [rsp - 192]
     vaddpd zmm19, [rsp - 320], [rsp - 448]
-
-    vsubpd zmm11, [rsp - 64],  [rsp - 192]
+    vsubpd zmm11, [rsp - 64 ], [rsp - 192]
     vsubpd zmm27, [rsp - 320], [rsp - 448]
-
     vaddpd zmm7,  [rsp - 128], [rsp - 512]
     vsubpd zmm23, [rsp - 384], [rsp - 256]
     
@@ -423,7 +430,299 @@ fft:
     vaddpd zmm15, [rsp - 384], [rsp - 256]
     vmovapd [rsp - 640], zmm15
 
+    ;;Internal matrix twiddles, they are constant, so no need to compute them
+    ;+----------------------------------------------------------------------------------------------------------------------------------------------------+
+    ;| zmm0,16 * 1| zmm4,20 * 1                              | zmm8,24 * 1                                | zmm12,28 * 1                                  |
+    ;| zmm1,17 * 1| zmm5,21 * (COS_PI_8 - i*SIN_PI_8)        | zmm9,25 * (SQRT_2_DIV_2 - i*SQRT_2_DIV_2)  | zmm13,29 * (SIN_PI_8 - i*COS_PI_8)            |
+    ;| zmm2,18 * 1| zmm6,22 * (SQRT_2_DIV_2 - i*SQRT_2_DIV_2)| zmm10,26 * -i                              | zmm14,30 * (-SQRT_2_DIV_2 - i*SQRT_2_DIV_2)   |
+    ;| zmm3,19 * 1| zmm7,23 * (SIN_PI_8 - i*COS_PI_8)        | zmm11,27 * (-SQRT_2_DIV_2 - i*SQRT_2_DIV_2)| zmm15,31 * (-COS_PI_8 + i*SIN_PI_8)           |
+    ;+----------------------------------------------------------------------------------------------------------------------------------------------------+
+
+    ;;* -i (zmm10, zmm26)
+    ;Swap
+    vmovapd zmm15, zmm10
+    vmovapd zmm10, zmm26
+    vxorpd zmm26, zmm15, [rel SIGN_MASK]{1bcst} ; New Imag = -old Real
+
+    ;* SQRT_2_DIV_2 (zmm6, zmm22)
+    vaddpd zmm15, zmm6, zmm22 ; zmm15 = R + I
+    vsubpd zmm31, zmm22, zmm6 ; zmm31 = I - R
+    vmulpd zmm6,  zmm15, [rel SQRT_2_DIV_2]{1bcst}
+    vmulpd zmm22, zmm31, [rel SQRT_2_DIV_2]{1bcst}
+
+    ;(zmm9, zmm25)
+    vaddpd zmm15, zmm9, zmm25
+    vsubpd zmm31, zmm25, zmm9
+    vmulpd zmm9,  zmm15, [rel SQRT_2_DIV_2]{1bcst}
+    vmulpd zmm25, zmm31, [rel SQRT_2_DIV_2]{1bcst}
+
+    ;(zmm11, zmm27)
+    vaddpd zmm15, zmm11, zmm27
+    vsubpd zmm31, zmm27, zmm11
+    vmulpd zmm11, zmm31, [rel SQRT_2_DIV_2]{1bcst}
+    vmulpd zmm27, zmm15, [rel SQRT_2_DIV_2_NEG]{1bcst}
+
+    ;(zmm14, zmm30)
+    vaddpd zmm15, zmm14, zmm30
+    vsubpd zmm31, zmm30, zmm14
+    vmulpd zmm14, zmm31, [rel SQRT_2_DIV_2]{1bcst}
+    vmulpd zmm30, zmm15, [rel SQRT_2_DIV_2_NEG]{1bcst}
+
+    ;*complex (zmm5, zmm21)
+    vmulpd zmm15, zmm5, [rel COS_PI_8]{1bcst}
+    vfnmadd231pd zmm15, zmm21, [rel SIN_PI_8]{1bcst}
+
+    vmulpd zmm31, zmm21, [rel COS_PI_8]{1bcst}
+    vfmadd231pd zmm31, zmm5, [rel SIN_PI_8]{1bcst}
+
+    vmovapd zmm5, zmm15
+    vmovapd zmm21, zmm31
+
+    ;(zmm7, zmm23)
+    vmulpd zmm15, zmm7, [rel SIN_PI_8]{1bcst}
+    vfmadd231pd zmm15, zmm23, [rel COS_PI_8]{1bcst}
+
+    vmulpd zmm31, zmm23, [rel SIN_PI_8]{1bcst}
+    vfnmadd231pd zmm31, zmm7, [rel COS_PI_8]{1bcst}
+
+    vmovapd zmm7, zmm15
+    vmovapd zmm23, zmm31
+
+    ;(zmm13, zmm29)
+    vmulpd zmm15, zmm13, [rel SIN_PI_8]{1bcst}
+    vfmadd231pd zmm15, zmm29, [rel COS_PI_8]{1bcst}
+
+    vmulpd zmm31, zmm29, [rel SIN_PI_8]{1bcst}
+    vfnmadd231pd zmm31, zmm7, [rel COS_PI_8]{1bcst}
+
+    vmovapd zmm13, zmm15
+    vmovapd zmm29, zmm31
+
+    ;(zmm15, zmm31)
+    vmovapd [rsp - 64], zmm0
+    vmovapd [rsp - 128], zmm16
+    vmovapd zmm15, [rsp - 576]
+    vmovapd zmm31, [rsp - 640]
+
+    vmulpd zmm0, zmm15, [rel COS_PI_8_NEG]{1bcst}
+    vfnmadd231pd zmm0, zmm31, [rel SIN_PI_8]{1bcst}
+
+    vmulpd zmm16, zmm31, [rel COS_PI_8_NEG]{1bcst}
+    vfmadd231pd zmm16, zmm15, [rel SIN_PI_8]{1bcst}
+
+    vmovapd [rsp - 576], zmm0
+    vmovapd [rsp - 640], zmm16
+    vmovapd zmm0, [rsp - 64]
+    vmovapd zmm16, [rsp - 128]
+
+    ;;Butterfly radix-4 again, same thing, slightly different inputs
+
+    ;0.
+    ;Real inputs: zmm0, zmm1, zmm2, zmm3
+    ;Imag inputs: zmm16, zmm17, zmm18, zmm19
+    vaddpd zmm15, zmm0, zmm2
+    vmovapd [rsp - 64], zmm15
+    vsubpd zmm15, zmm0, zmm2
+    vmovapd [rsp - 128], zmm15
+
+    vaddpd zmm15, zmm1, zmm3
+    vmovapd [rsp - 192], zmm15
+    vsubpd zmm15, zmm1, zmm3
+    vmovapd [rsp - 256], zmm15
+
+    vaddpd zmm15, zmm16, zmm18
+    vmovapd [rsp - 320], zmm15
+    vsubpd zmm15, zmm16, zmm18
+    vmovapd [rsp - 384], zmm15
+
+    vaddpd zmm15, zmm17, zmm19
+    vmovapd [rsp - 448], zmm15
+    vsubpd zmm15, zmm17, zmm19
+    vmovapd [rsp - 512], zmm15
+
+    vaddpd zmm0,  [rsp - 64],  [rsp - 192]
+    vaddpd zmm16, [rsp - 320], [rsp - 448]
+    vsubpd zmm2,  [rsp - 64],  [rsp - 192]
+    vsubpd zmm18, [rsp - 320], [rsp - 448]
+
+    vaddpd zmm1,  [rsp - 128], [rsp - 512]
+    vsubpd zmm17, [rsp - 384], [rsp - 256]
+    vsubpd zmm3,  [rsp - 128], [rsp - 512]
+    vaddpd zmm19, [rsp - 384], [rsp - 256]
+
+    ;1.
+    ;Real inputs: zmm4, zmm5, zmm6, zmm7
+    ;Imag inputs: zmm20, zmm21, zmm22, zmm23
+    vaddpd zmm15, zmm4, zmm6
+    vmovapd [rsp - 64], zmm15
+    vsubpd zmm15, zmm4, zmm6
+    vmovapd [rsp - 128], zmm15
+
+    vaddpd zmm15, zmm5, zmm7
+    vmovapd [rsp - 192], zmm15
+    vsubpd zmm15, zmm5, zmm7
+    vmovapd [rsp - 256], zmm15
+
+    vaddpd zmm15, zmm20, zmm22
+    vmovapd [rsp - 320], zmm15
+    vsubpd zmm15, zmm20, zmm22
+    vmovapd [rsp - 384], zmm15
+
+    vaddpd zmm15, zmm21, zmm23
+    vmovapd [rsp - 448], zmm15
+    vsubpd zmm15, zmm21, zmm23
+    vmovapd [rsp - 512], zmm15
+
+    vaddpd zmm4,  [rsp - 64],  [rsp - 192]
+    vaddpd zmm20, [rsp - 320], [rsp - 448]
+    vsubpd zmm6,  [rsp - 64],  [rsp - 192]
+    vsubpd zmm22, [rsp - 320], [rsp - 448]
+
+    vaddpd zmm5,  [rsp - 128], [rsp - 512]
+    vsubpd zmm21, [rsp - 384], [rsp - 256]
+    vsubpd zmm7,  [rsp - 128], [rsp - 512]
+    vaddpd zmm23, [rsp - 384], [rsp - 256]
+
+    ;2.
+    ;Real inputs: zmm8, zmm9, zmm10, zmm11
+    ;Imag inputs: zmm24, zmm25, zmm26, zmm27
+    vaddpd zmm15, zmm8, zmm10
+    vmovapd [rsp - 64], zmm15
+    vsubpd zmm15, zmm8, zmm10
+    vmovapd [rsp - 128], zmm15
+
+    vaddpd zmm15, zmm9, zmm11
+    vmovapd [rsp - 192], zmm15
+    vsubpd zmm15, zmm9, zmm11
+    vmovapd [rsp - 256], zmm15
+
+    vaddpd zmm15, zmm24, zmm26
+    vmovapd [rsp - 320], zmm15
+    vsubpd zmm15, zmm24, zmm26
+    vmovapd [rsp - 384], zmm15
+
+    vaddpd zmm15, zmm25, zmm27
+    vmovapd [rsp - 448], zmm15
+    vsubpd zmm15, zmm25, zmm27
+    vmovapd [rsp - 512], zmm15
+
+    vaddpd zmm8,  [rsp - 64],  [rsp - 192]
+    vaddpd zmm24, [rsp - 320], [rsp - 448]
+    vsubpd zmm10, [rsp - 64],  [rsp - 192]
+    vsubpd zmm26, [rsp - 320], [rsp - 448]
+
+    vaddpd zmm9,  [rsp - 128], [rsp - 512]
+    vsubpd zmm25, [rsp - 384], [rsp - 256]
+    vsubpd zmm11, [rsp - 128], [rsp - 512]
+    vaddpd zmm27, [rsp - 384], [rsp - 256]
+
+    ;3.
+    ;Real inputs: zmm12, zmm13, zmm14, [rsp - 576]
+    ;Imag inputs: zmm28, zmm29, zmm30, [rsp - 640]
+    vaddpd zmm15, zmm12, zmm14
+    vmovapd [rsp - 64], zmm15
+    vsubpd zmm15, zmm12, zmm14
+    vmovapd [rsp - 128], zmm15
+
+    vaddpd zmm15, zmm13, [rsp - 576]
+    vmovapd [rsp - 192], zmm15
+    vsubpd zmm15, zmm13, [rsp - 576]
+    vmovapd [rsp - 256], zmm15
+
+    vaddpd zmm15, zmm28, zmm30
+    vmovapd [rsp - 320], zmm15
+    vsubpd zmm15, zmm28, zmm30
+    vmovapd [rsp - 384], zmm15
+
+    vaddpd zmm15, zmm29, [rsp - 640]
+    vmovapd [rsp - 448], zmm15
+    vsubpd zmm15, zmm29, [rsp - 640]
+    vmovapd [rsp - 512], zmm15
+
+    vaddpd zmm12, [rsp - 64],  [rsp - 192]
+    vaddpd zmm28, [rsp - 320], [rsp - 448]
+    vsubpd zmm14, [rsp - 64],  [rsp - 192]
+    vsubpd zmm30, [rsp - 320], [rsp - 448]
+
+    vaddpd zmm13, [rsp - 128], [rsp - 512]
+    vsubpd zmm29, [rsp - 384], [rsp - 256]
     
+    vsubpd zmm15, [rsp - 128], [rsp - 512]
+    vmovapd [rsp - 576], zmm15
+    vaddpd zmm15, [rsp - 384], [rsp - 256]
+    vmovapd [rsp - 640], zmm15
+
+    ;;Calculations done, now we need to store it basically the same thing as loading
+    lea rdi, [r12 + rbx + r15] ;rdi = dst real pointer
+    lea rsi, [r11 + rbx + r15] ;rsi = dst imag pointer
+    
+    ;;0-3
+    vmovapd [rdi], zmm0
+    vmovapd [rsi], zmm16
+
+    vmovapd [rdi + r8], zmm1
+    vmovapd [rsi + r8], zmm17
+
+    vmovapd [rdi + 2 * r8], zmm2
+    vmovapd [rsi + 2 * r8], zmm18
+
+    vmovapd [rdi + rdx], zmm3
+    vmovapd [rsi + rdx], zmm19
+
+    ; --Advance pointers--
+    lea rdi, [rdi + 4 * r8]
+    lea rsi, [rsi + 4 * r8]
+
+    ;4-7
+    vmovapd [rdi], zmm4
+    vmovapd [rsi], zmm20
+
+    vmovapd [rdi + r8], zmm5
+    vmovapd [rsi + r8], zmm21
+
+    vmovapd [rdi + 2 * r8], zmm6
+    vmovapd [rsi + 2 * r8], zmm22
+
+    vmovapd [rdi + rdx], zmm7
+    vmovapd [rsi + rdx], zmm23
+
+    ; --Advance pointers--
+    lea rdi, [rdi + 4 * r8]
+    lea rsi, [rsi + 4 * r8]
+
+    ;8-11
+    vmovapd [rdi], zmm8
+    vmovapd [rsi], zmm24
+
+    vmovapd [rdi + r8], zmm9
+    vmovapd [rsi + r8], zmm25
+
+    vmovapd [rdi + 2 * r8], zmm10
+    vmovapd [rsi + 2 * r8], zmm26
+
+    vmovapd [rdi + rdx], zmm11
+    vmovapd [rsi + rdx], zmm27
+
+    ; --Advance pointers--
+    lea rdi, [rdi + 4 * r8]
+    lea rsi, [rsi + 4 * r8]
+
+    ;12-15
+    vmovapd [rdi], zmm12
+    vmovapd [rsi], zmm28
+
+    vmovapd [rdi + r8], zmm13
+    vmovapd [rsi + r8], zmm29
+
+    vmovapd [rdi + 2 * r8], zmm14
+    vmovapd [rsi + 2 * r8], zmm30
+
+    vmovapd zmm15, [rsp - 576]
+    vmovapd zmm31, [rsp - 640]
+    vmovapd [rdi + rdx], zmm15
+    vmovapd [rsi + rdx], zmm31
+
+
     add rax, 64
     add rbp, 960
     cmp rax, rcx
