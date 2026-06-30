@@ -1,6 +1,6 @@
 section .rodata
     align 64
-    SIGN_MASK:         dq 0x8000000000000000 ;;To flip the sign
+    SIGN_MASK:          dq 0x8000000000000000 ;;To flip the sign
     SQRT_2_DIV_2:       dq 0.7071067811865476 ;;Somewhat accurate
     SQRT_2_DIV_2_NEG:   dq -0.7071067811865476
     COS_PI_8:           dq 0.9238795325112867
@@ -46,16 +46,13 @@ fft_kernel:
     xor r15, r15
     xor rbp, rbp
 
+
 ; rax = current counter
 ; rbx = base pointer of src
 ; r15 = offset within block
 ; r8  = stride
 
 .loop:
-    ;;prefetcht1 [r14 + rbx + r15 + 512]
-    ;;prefetcht1 [r14 + rbx + r15 + r8 + 512]
-    ;;prefetcht1 [r14 + rbx + r15 + 2 * r8 + 512]
-
     ;; So this is very clever trick I recently learnt
     ;; Instead of doing offset = some_count % stride(rax % r8), which is very slow 
     ;; I mov r8 into rdx and dec rdx, and then rdx AND rax which gives us rax % r8 
@@ -63,13 +60,22 @@ fft_kernel:
     mov rdx, r8
     dec rdx
     and r15, rdx
-    
-    ;; Similar thing but opposite 
+
     mov rbx, rax
     not rdx
     and rbx, rdx
-
     shl rbx, 4
+
+    
+    lea rdi, [rbx + r15]
+    lea rsi, [r13 + rdi]
+    add rdi, r14
+
+    prefetcht1 [rdi + 512]
+    prefetcht1 [rdi + r8 + 512]
+    prefetcht1 [rdi + 2 * r8 + 512]
+
+    lea rdx, [r8 + 2 * r8]
     
     ;;Set up offsets for loading
     lea rdi, [rbx + r15]
@@ -536,7 +542,7 @@ fft_kernel:
     vfmadd231pd zmm15, zmm29, [rel COS_PI_8]{1to8}
 
     vmulpd zmm31, zmm29, [rel SIN_PI_8]{1to8}
-    vfnmadd231pd zmm31, zmm7, [rel COS_PI_8]{1to8}
+    vfnmadd231pd zmm31, zmm13, [rel COS_PI_8]{1to8}
 
     vmovupd zmm13, zmm15
     vmovupd zmm29, zmm31
