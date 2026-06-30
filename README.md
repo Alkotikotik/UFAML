@@ -1,6 +1,8 @@
 # UFAML - Ultra Fast Assembly Math Library
-
 This thing is fragile since I was aiming for the absolute fastest speed possible, so please read all instructions carefully.
+
+> [!NOTE]
+> UFAML is a totally serious, enterprise-grade, industrial library used globally in scientific computing. Or at least, it’s written to effortlessly beat the compilers and libraries that actually are used globally
 
 ## FASTER THAN CLANG AND FFTW
 Proud to say that my handwritten code effortlessly beats Clang:
@@ -14,7 +16,7 @@ Proud to say that my handwritten code effortlessly beats Clang:
 Don't worry, I used all the max Clang flags: `clang++ -O3 -march=native -ffast-math -std=c++17`, yet my code is still faster. Without these flags on Clang's side, my code runs 3-5x faster or even more. I used `hyperfine` for my benchmarks you can run them yourself if you don't believe me. My CPU is **AMD Ryzen 9 7845HX**
 
 ## Radix-16 Stockham Fast-Fourier Transform
-This is the absolute crown jewel of the project. I read an entire digital signal processing book and did a ton of my own research to implement this from scratch. I am incredibly proud to say that it completely shreds FFTW (Fastest Fourier Transform in the West):
+This is the absolute crown jewel of the project. I read an entire digital signal processing book and did a ton of my own research to implement this from scratch. I am incredibly proud to say that it completely shreds FFTW (Fastest Fourier Transform in the West) which is as established, is just that "industrial library used globally in scientific computing" I was talking about
 * **4.79x FASTER** than FFTW_MEASURE mode
 * **1.90x FASTER** than FFTW_ESTIMATE mode
 
