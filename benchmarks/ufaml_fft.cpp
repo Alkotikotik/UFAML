@@ -1,5 +1,6 @@
 // Same as UFAML/fft.cpp, but takes the iteration count as argv[1]
 // (iterations=0 measures setup cost: allocation, init, twiddle precompute).
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <complex>
@@ -27,19 +28,17 @@ void free_aligned_doubles(double *ptr) { ::operator delete[](ptr, std::align_val
 void pre_compute_twiddles(int N, double *twid_real, double *twid_imag) {
     int idx = 0;
     for (int stride = 1; stride < N; stride *= 16) {
-        int num_blocks = N / (stride * 16);
+        // Twiddles only depend on i = j % stride, so one entry per (i, k), in the order
+        // the kernel reads them: chunks of 8 i's, 15 twiddles each -> 15 * max(stride, 8) per pass
+        for (int i0 = 0; i0 < std::max(stride, 8); i0 += 8) {
+            for (int k = 1; k <= 15; ++k) {
+                for (int v = 0; v < 8; ++v) {
+                    int i = (i0 + v) & (stride - 1); // position inside the block
+                    double theta = (2.0 * M_PI * i * k) / (stride * 16);
 
-        for (int b = 0; b < num_blocks; ++b) {
-            for (int i = 0; i < stride; i += 8) {
-                for (int k = 1; k <= 15; ++k) {
-                    for (int v = 0; v < 8; ++v) {
-                        int j = b * stride + (i + v);
-                        double theta = (2.0 * M_PI * j * k) / (stride * 16);
-
-                        twid_real[idx] = std::cos(theta);
-                        twid_imag[idx] = -std::sin(theta);
-                        idx++;
-                    }
+                    twid_real[idx] = std::cos(theta);
+                    twid_imag[idx] = -std::sin(theta);
+                    idx++;
                 }
             }
         }
@@ -54,7 +53,7 @@ void fft_source(int N, const cmplx *src, const cmplx *dst, const cmplx *twid_des
     for (int stride = 1; stride < N; stride *= 16) {
         fft_kernel(&src_desc, &dst_desc, &current_twid, N, stride);
 
-        int twiddles_used_this_pass = 15 * (N / 16);
+        int twiddles_used_this_pass = 15 * std::max(stride, 8);
         current_twid.real += twiddles_used_this_pass;
         current_twid.imag += twiddles_used_this_pass;
 

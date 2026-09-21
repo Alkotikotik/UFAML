@@ -44,13 +44,13 @@ fft_kernel:
     xor rax, rax
     xor rbx, rbx
     xor r15, r15
-    xor rbp, rbp
 
 
 ; rax = current counter
-; rbx = base pointer of src
+; rbx = base of the 16*stride output block (bytes)
 ; r15 = offset within block
-; r8  = stride
+; r8  = stride (bytes), output spacing
+; rcx = N/16 * 8 = loop limit and input spacing (bytes)
 
 .loop:
     ;; So this is very clever trick I recently learnt
@@ -61,47 +61,51 @@ fft_kernel:
     dec rdx
     and r15, rdx
 
+    ;; Twiddles only depend on the position inside the block
+    ;; So in the first 3 passes we don't need full twiddles which is like 3.9MB and doesn't fit into L1.
+    ;; So by changing so passes 1-3 uses only twiddles they need
+    ;;(1 twiddle for first pass(all ones) 240 twiddles for pass 2 and 3840 twiddles for pass 2)
+    ;; We can read twiddles in 1-3 directely from L1 which should be fast.
+    lea rbp, [r15 + 4 * r15]
+    lea rbp, [rbp + 2 * rbp]
+
     mov rbx, rax
     not rdx
     and rbx, rdx
     shl rbx, 4
 
-    
-    lea rdi, [rbx + r15]
-    lea rsi, [r13 + rdi]
-    add rdi, r14
+
+    ;;Set up offsets for loading
+    ;;Stockham: inputs are read N/16 apart (rcx = N/16 * 8 bytes) starting at butterfly j (rax = j * 8 bytes),
+    ;;outputs are written stride apart so r8, that's what sorts the result and it wrong before
+    lea rdi, [r14 + rax]
+    lea rsi, [r13 + rax]
+    lea rdx, [rcx + 2 * rcx]
 
     prefetcht1 [rdi + 512]
-    prefetcht1 [rdi + r8 + 512]
-    prefetcht1 [rdi + 2 * r8 + 512]
+    prefetcht1 [rdi + rcx + 512]
+    prefetcht1 [rdi + 2 * rcx + 512]
 
-    lea rdx, [r8 + 2 * r8]
-    
-    ;;Set up offsets for loading
-    lea rdi, [rbx + r15]
-    lea rsi, [r13 + rdi]
-    add rdi, r14
-    lea rdx, [r8 + 2 * r8]
-    
-    ;; Load them by chunks of 4 and immidiately add twiddles 
-    
+    ;; Load them by chunks of 4 and immidiately add twiddles
+
     ; --Load 0-3
-    vmovupd zmm0,  [rdi]
-    vmovupd zmm16, [rsi]
+    ;; I can finally use vmovapds after that fix hell yeah!!
+    vmovapd zmm0,  [rdi]
+    vmovapd zmm16, [rsi]
 
-    vmovupd zmm1,  [rdi + r8]
-    vmovupd zmm17, [rsi + r8]
+    vmovapd zmm1,  [rdi + rcx]
+    vmovapd zmm17, [rsi + rcx]
 
-    vmovupd zmm2,  [rdi + 2 * r8]
-    vmovupd zmm18, [rsi + 2 * r8]
+    vmovapd zmm2,  [rdi + 2 * rcx]
+    vmovapd zmm18, [rsi + 2 * rcx]
 
-    vmovupd zmm3,  [rdi + rdx]
-    vmovupd zmm19, [rsi + rdx]
+    vmovapd zmm3,  [rdi + rdx]
+    vmovapd zmm19, [rsi + rdx]
 
     ; Real new = R * T_R - I * T_I
     ; Imag new = I * T_R + R * T_I
 
-    vmovupd zmm15, [r10 + rbp] ;dw its empty atm
+    vmovapd zmm15, [r10 + rbp] ;dw its empty atm
     vmulpd zmm15, zmm15, zmm1
     ;;This is negative add so -(2*3) + 1
     vfnmadd231pd zmm15, zmm17, [r9 + rbp]
@@ -110,7 +114,7 @@ fft_kernel:
     vfmadd231pd zmm17, zmm1, [r9 + rbp]
     vmovupd zmm1, zmm15
 
-    vmovupd zmm15, [r10 + rbp + 64]
+    vmovapd zmm15, [r10 + rbp + 64]
     vmulpd zmm15, zmm15, zmm2
     vfnmadd231pd zmm15, zmm18, [r9 + rbp + 64]
 
@@ -118,7 +122,7 @@ fft_kernel:
     vfmadd231pd zmm18, zmm2, [r9 + rbp + 64]
     vmovupd zmm2, zmm15
 
-    vmovupd zmm15, [r10 + rbp + 128]
+    vmovapd zmm15, [r10 + rbp + 128]
     vmulpd zmm15, zmm15, zmm3
     vfnmadd231pd zmm15, zmm19, [r9 + rbp + 128]
 
@@ -128,23 +132,23 @@ fft_kernel:
     
     ; --Advance pointers--
     ; Its fine bc it works in parralel since lea is AGU 
-    lea rdi, [rdi + 4 * r8]
-    lea rsi, [rsi + 4 * r8]
+    lea rdi, [rdi + 4 * rcx]
+    lea rsi, [rsi + 4 * rcx]
     
     ; --Load 4-7--
-    vmovupd zmm4,  [rdi]
-    vmovupd zmm20, [rsi]
+    vmovapd zmm4,  [rdi]
+    vmovapd zmm20, [rsi]
 
-    vmovupd zmm5,  [rdi + r8]
-    vmovupd zmm21, [rsi + r8]
+    vmovapd zmm5,  [rdi + rcx]
+    vmovapd zmm21, [rsi + rcx]
 
-    vmovupd zmm6,  [rdi + 2 * r8]
-    vmovupd zmm22, [rsi + 2 * r8]
+    vmovapd zmm6,  [rdi + 2 * rcx]
+    vmovapd zmm22, [rsi + 2 * rcx]
 
-    vmovupd zmm7,  [rdi + rdx]
-    vmovupd zmm23, [rsi + rdx]
+    vmovapd zmm7,  [rdi + rdx]
+    vmovapd zmm23, [rsi + rdx]
 
-    vmovupd zmm15, [r10 + rbp + 192] ;Why bother with pointers inc and stuff..?
+    vmovapd zmm15, [r10 + rbp + 192] ;Why bother with pointers inc and stuff..?
     vmulpd zmm15, zmm15, zmm4
     vfnmadd231pd zmm15, zmm20, [r9 + rbp + 192]
 
@@ -152,7 +156,7 @@ fft_kernel:
     vfmadd231pd zmm20, zmm4, [r9 + rbp + 192]
     vmovupd zmm4, zmm15
 
-    vmovupd zmm15, [r10 + rbp + 256]
+    vmovapd zmm15, [r10 + rbp + 256]
     vmulpd zmm15, zmm15, zmm5
     vfnmadd231pd zmm15, zmm21, [r9 + rbp + 256]
 
@@ -160,7 +164,7 @@ fft_kernel:
     vfmadd231pd zmm21, zmm5, [r9 + rbp + 256]
     vmovupd zmm5, zmm15
 
-    vmovupd zmm15, [r10 + rbp + 320]
+    vmovapd zmm15, [r10 + rbp + 320]
     vmulpd zmm15, zmm15, zmm6
     vfnmadd231pd zmm15, zmm22, [r9 + rbp + 320]
 
@@ -168,7 +172,7 @@ fft_kernel:
     vfmadd231pd zmm22, zmm6, [r9 + rbp + 320]
     vmovupd zmm6, zmm15
 
-    vmovupd zmm15, [r10 + rbp + 384]
+    vmovapd zmm15, [r10 + rbp + 384]
     vmulpd zmm15, zmm15, zmm7
     vfnmadd231pd zmm15, zmm23, [r9 + rbp + 384]
 
@@ -177,23 +181,23 @@ fft_kernel:
     vmovupd zmm7, zmm15
     
     ; --Advance pointers--
-    lea rdi, [rdi + 4 * r8]
-    lea rsi, [rsi + 4 * r8]
+    lea rdi, [rdi + 4 * rcx]
+    lea rsi, [rsi + 4 * rcx]
     
     ; --Load 8-11
-    vmovupd zmm8,  [rdi]
-    vmovupd zmm24, [rsi]
+    vmovapd zmm8,  [rdi]
+    vmovapd zmm24, [rsi]
 
-    vmovupd zmm9,  [rdi + r8]
-    vmovupd zmm25, [rsi + r8]
+    vmovapd zmm9,  [rdi + rcx]
+    vmovapd zmm25, [rsi + rcx]
 
-    vmovupd zmm10, [rdi + 2 * r8]
-    vmovupd zmm26, [rsi + 2 * r8]
+    vmovapd zmm10, [rdi + 2 * rcx]
+    vmovapd zmm26, [rsi + 2 * rcx]
 
-    vmovupd zmm11, [rdi + rdx]
-    vmovupd zmm27, [rsi + rdx]
+    vmovapd zmm11, [rdi + rdx]
+    vmovapd zmm27, [rsi + rdx]
 
-    vmovupd zmm15, [r10 + rbp + 448]
+    vmovapd zmm15, [r10 + rbp + 448]
     vmulpd zmm15, zmm15, zmm8
     vfnmadd231pd zmm15, zmm24, [r9 + rbp + 448]
 
@@ -201,7 +205,7 @@ fft_kernel:
     vfmadd231pd zmm24, zmm8, [r9 + rbp + 448]
     vmovupd zmm8, zmm15
 
-    vmovupd zmm15, [r10 + rbp + 512]
+    vmovapd zmm15, [r10 + rbp + 512]
     vmulpd zmm15, zmm15, zmm9
     vfnmadd231pd zmm15, zmm25, [r9 + rbp + 512]
 
@@ -209,7 +213,7 @@ fft_kernel:
     vfmadd231pd zmm25, zmm9, [r9 + rbp + 512]
     vmovupd zmm9, zmm15
 
-    vmovupd zmm15, [r10 + rbp + 576]
+    vmovapd zmm15, [r10 + rbp + 576]
     vmulpd zmm15, zmm15, zmm10
     vfnmadd231pd zmm15, zmm26, [r9 + rbp + 576]
 
@@ -217,7 +221,7 @@ fft_kernel:
     vfmadd231pd zmm26, zmm10, [r9 + rbp + 576]
     vmovupd zmm10, zmm15
 
-    vmovupd zmm15, [r10 + rbp + 640]
+    vmovapd zmm15, [r10 + rbp + 640]
     vmulpd zmm15, zmm15, zmm11
     vfnmadd231pd zmm15, zmm27, [r9 + rbp + 640]
 
@@ -226,25 +230,25 @@ fft_kernel:
     vmovupd zmm11, zmm15
     
     ; --Advance pointers--
-    lea rdi, [rdi + 4 * r8]
-    lea rsi, [rsi + 4 * r8]
+    lea rdi, [rdi + 4 * rcx]
+    lea rsi, [rsi + 4 * rcx]
 
     vmovupd [rsp - 64], zmm0
     
     ; Load 12-15
-    vmovupd zmm12, [rdi]
-    vmovupd zmm28, [rsi]
+    vmovapd zmm12, [rdi]
+    vmovapd zmm28, [rsi]
 
-    vmovupd zmm13, [rdi + r8]
-    vmovupd zmm29, [rsi + r8]
+    vmovapd zmm13, [rdi + rcx]
+    vmovapd zmm29, [rsi + rcx]
 
-    vmovupd zmm14, [rdi + 2 * r8]
-    vmovupd zmm30, [rsi + 2 * r8]
+    vmovapd zmm14, [rdi + 2 * rcx]
+    vmovapd zmm30, [rsi + 2 * rcx]
 
-    vmovupd zmm15, [rdi + rdx]
-    vmovupd zmm31, [rsi + rdx]
+    vmovapd zmm15, [rdi + rdx]
+    vmovapd zmm31, [rsi + rdx]
 
-    vmovupd zmm0, [r10 + rbp + 704]
+    vmovapd zmm0, [r10 + rbp + 704]
     vmulpd zmm0, zmm0, zmm12
     vfnmadd231pd zmm0, zmm28, [r9 + rbp + 704]
 
@@ -252,7 +256,7 @@ fft_kernel:
     vfmadd231pd zmm28, zmm12, [r9 + rbp + 704]
     vmovupd zmm12, zmm0
 
-    vmovupd zmm0, [r10 + rbp + 768]
+    vmovapd zmm0, [r10 + rbp + 768]
     vmulpd zmm0, zmm0, zmm13
     vfnmadd231pd zmm0, zmm29, [r9 + rbp + 768]
 
@@ -260,7 +264,7 @@ fft_kernel:
     vfmadd231pd zmm29, zmm13, [r9 + rbp + 768]
     vmovupd zmm13, zmm0
 
-    vmovupd zmm0, [r10 + rbp + 832]
+    vmovapd zmm0, [r10 + rbp + 832]
     vmulpd zmm0, zmm0, zmm14
     vfnmadd231pd zmm0, zmm30, [r9 + rbp + 832]
 
@@ -268,7 +272,7 @@ fft_kernel:
     vfmadd231pd zmm30, zmm14, [r9 + rbp + 832]
     vmovupd zmm14, zmm0
 
-    vmovupd zmm0, [r10 + rbp + 896]
+    vmovapd zmm0, [r10 + rbp + 896]
     vmulpd zmm0, zmm0, zmm15
     vfnmadd231pd zmm0, zmm31, [r9 + rbp + 896]
 
@@ -686,6 +690,7 @@ fft_kernel:
     lea rdi, [rbx + r15] ;rdi = dst real pointer
     lea rsi, [r11 + rdi] ;rsi = dst imag pointer
     add rdi, r12
+    lea rdx, [r8 + 2 * r8]
     
     ;;0-3
     vmovupd [rdi], zmm0
@@ -755,7 +760,6 @@ fft_kernel:
 
 
     add rax, 64
-    add rbp, 960
     cmp rax, rcx
     jl .loop
 
