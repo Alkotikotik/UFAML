@@ -489,10 +489,10 @@ fft_kernel:
 
     ;*complex (zmm5, zmm21)
     vmulpd zmm15, zmm5, [rel COS_PI_8]{1to8}
-    vfnmadd231pd zmm15, zmm21, [rel SIN_PI_8]{1to8}
+    vfmadd231pd zmm15, zmm21, [rel SIN_PI_8]{1to8}
 
     vmulpd zmm31, zmm21, [rel COS_PI_8]{1to8}
-    vfmadd231pd zmm31, zmm5, [rel SIN_PI_8]{1to8}
+    vfnmadd231pd zmm31, zmm5, [rel SIN_PI_8]{1to8}
 
     vmovupd zmm5, zmm15
     vmovupd zmm21, zmm31
@@ -691,62 +691,62 @@ fft_kernel:
     vmovupd [rdi], zmm0
     vmovupd [rsi], zmm16
 
-    vmovupd [rdi + r8], zmm1
-    vmovupd [rsi + r8], zmm17
+    vmovupd [rdi + r8], zmm4
+    vmovupd [rsi + r8], zmm20
 
-    vmovupd [rdi + 2 * r8], zmm2
-    vmovupd [rsi + 2 * r8], zmm18
+    vmovupd [rdi + 2 * r8], zmm8
+    vmovupd [rsi + 2 * r8], zmm24
 
-    vmovupd [rdi + rdx], zmm3
-    vmovupd [rsi + rdx], zmm19
+    vmovupd [rdi + rdx], zmm12
+    vmovupd [rsi + rdx], zmm28
 
     ; --Advance pointers--
     lea rdi, [rdi + 4 * r8]
     lea rsi, [rsi + 4 * r8]
 
     ;4-7
-    vmovupd [rdi], zmm4
-    vmovupd [rsi], zmm20
+    vmovupd [rdi], zmm1
+    vmovupd [rsi], zmm17
 
     vmovupd [rdi + r8], zmm5
     vmovupd [rsi + r8], zmm21
 
-    vmovupd [rdi + 2 * r8], zmm6
-    vmovupd [rsi + 2 * r8], zmm22
+    vmovupd [rdi + 2 * r8], zmm9
+    vmovupd [rsi + 2 * r8], zmm25
 
-    vmovupd [rdi + rdx], zmm7
-    vmovupd [rsi + rdx], zmm23
+    vmovupd [rdi + rdx], zmm13
+    vmovupd [rsi + rdx], zmm29
 
     ; --Advance pointers--
     lea rdi, [rdi + 4 * r8]
     lea rsi, [rsi + 4 * r8]
 
     ;8-11
-    vmovupd [rdi], zmm8
-    vmovupd [rsi], zmm24
+    vmovupd [rdi], zmm2
+    vmovupd [rsi], zmm18
 
-    vmovupd [rdi + r8], zmm9
-    vmovupd [rsi + r8], zmm25
+    vmovupd [rdi + r8], zmm6
+    vmovupd [rsi + r8], zmm22
 
     vmovupd [rdi + 2 * r8], zmm10
     vmovupd [rsi + 2 * r8], zmm26
 
-    vmovupd [rdi + rdx], zmm11
-    vmovupd [rsi + rdx], zmm27
+    vmovupd [rdi + rdx], zmm14
+    vmovupd [rsi + rdx], zmm30
 
     ; --Advance pointers--
     lea rdi, [rdi + 4 * r8]
     lea rsi, [rsi + 4 * r8]
 
     ;12-15
-    vmovupd [rdi], zmm12
-    vmovupd [rsi], zmm28
+    vmovupd [rdi], zmm3
+    vmovupd [rsi], zmm19
 
-    vmovupd [rdi + r8], zmm13
-    vmovupd [rsi + r8], zmm29
+    vmovupd [rdi + r8], zmm7
+    vmovupd [rsi + r8], zmm23
 
-    vmovupd [rdi + 2 * r8], zmm14
-    vmovupd [rsi + 2 * r8], zmm30
+    vmovupd [rdi + 2 * r8], zmm11
+    vmovupd [rsi + 2 * r8], zmm27
 
     vmovupd zmm15, [rsp - 576]
     vmovupd zmm31, [rsp - 640]
