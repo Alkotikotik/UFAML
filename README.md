@@ -1,9 +1,6 @@
 # UFAML - Ultra Fast Assembly Math Library
 This thing is fragile since I was aiming for the absolute fastest speed possible, so refer to instructions.
 
-> [!NOTE]
-> UFAML is a totally serious, enterprise-grade, industrial library used globally in scientific computing. Or at least, it’s written to effortlessly beat the compilers and libraries that actually are used globally
-
 Code is in the UFAML/ directory
 
 ## FASTER THAN CLANG AND FFTW
