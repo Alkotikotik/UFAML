@@ -7,282 +7,8 @@ section .rodata
     COS_PI_8_NEG:       dq -0.9238795325112867
     SIN_PI_8:           dq 0.3826834323650898
 
-section .text 
-
-global fft_kernel 
-fft_kernel: 
-;rdi = *src real, [rdi+8] = imag
-;rsi = *dst real, [rsi+8] = imag
-;rdx = *twiddles real, [rdi+8] = imag
-;rcx = N(of samples)
-;r8 = curret stride
-
-    push r12
-    push r13
-    push r14
-    push r15
-    push rbx
-    push rbp
-    
-    ; 1. Calculate loop limit: rcx = (N / 16) * 8
-    shr rcx, 4
-    shl rcx, 3
-    
-    ;Scale stride to bytes
-    shl r8, 3
-    
-    ;;scr
-    mov r14, [rdi]
-    mov r13, [rdi + 8]
-    ;;dst
-    mov r12, [rsi]
-    mov r11, [rsi + 8]
-    ;;Twiddles
-    mov r10, [rdx]
-    mov r9, [rdx + 8]
-
-    xor rax, rax
-    xor rbx, rbx
-    xor r15, r15
-
-
-; rax = current counter
-; rbx = base of the 16*stride output block (bytes)
-; r15 = offset within block
-; r8  = stride (bytes), output spacing
-; rcx = N/16 * 8 = loop limit and input spacing (bytes)
-
-.loop:
-    ;; So this is very clever trick I recently learnt
-    ;; Instead of doing offset = some_count % stride(rax % r8), which is very slow 
-    ;; I mov r8 into rdx and dec rdx, and then rdx AND rax which gives us rax % r8 
-    mov r15, rax
-    mov rdx, r8
-    dec rdx
-    and r15, rdx
-
-    ;; Twiddles only depend on the position inside the block
-    ;; So in the first 3 passes we don't need full twiddles which is like 3.9MB and doesn't fit into L1.
-    ;; So by changing so passes 1-3 uses only twiddles they need
-    ;;(1 twiddle for first pass(all ones) 240 twiddles for pass 2 and 3840 twiddles for pass 2)
-    ;; We can read twiddles in 1-3 directely from L1 which should be fast.
-    lea rbp, [r15 + 4 * r15]
-    lea rbp, [rbp + 2 * rbp]
-
-    mov rbx, rax
-    not rdx
-    and rbx, rdx
-    shl rbx, 4
-
-
-    ;;Set up offsets for loading
-    ;;Stockham: inputs are read N/16 apart (rcx = N/16 * 8 bytes) starting at butterfly j (rax = j * 8 bytes),
-    ;;outputs are written stride apart so r8, that's what sorts the result and it wrong before
-    lea rdi, [r14 + rax]
-    lea rsi, [r13 + rax]
-    lea rdx, [rcx + 2 * rcx]
-
-    prefetcht1 [rdi + 512]
-    prefetcht1 [rdi + rcx + 512]
-    prefetcht1 [rdi + 2 * rcx + 512]
-
-    ;; Load them by chunks of 4 and immidiately add twiddles
-
-    ; --Load 0-3
-    ;; I can finally use vmovapds after that fix hell yeah!!
-    vmovapd zmm0,  [rdi]
-    vmovapd zmm16, [rsi]
-
-    vmovapd zmm1,  [rdi + rcx]
-    vmovapd zmm17, [rsi + rcx]
-
-    vmovapd zmm2,  [rdi + 2 * rcx]
-    vmovapd zmm18, [rsi + 2 * rcx]
-
-    vmovapd zmm3,  [rdi + rdx]
-    vmovapd zmm19, [rsi + rdx]
-
-    ; Real new = R * T_R - I * T_I
-    ; Imag new = I * T_R + R * T_I
-
-    vmovapd zmm15, [r10 + rbp] ;dw its empty atm
-    vmulpd zmm15, zmm15, zmm1
-    ;;This is negative add so -(2*3) + 1
-    vfnmadd231pd zmm15, zmm17, [r9 + rbp]
-
-    vmulpd zmm17, zmm17, [r10+rbp]
-    vfmadd231pd zmm17, zmm1, [r9 + rbp]
-    vmovupd zmm1, zmm15
-
-    vmovapd zmm15, [r10 + rbp + 64]
-    vmulpd zmm15, zmm15, zmm2
-    vfnmadd231pd zmm15, zmm18, [r9 + rbp + 64]
-
-    vmulpd zmm18, zmm18, [r10 + rbp + 64]
-    vfmadd231pd zmm18, zmm2, [r9 + rbp + 64]
-    vmovupd zmm2, zmm15
-
-    vmovapd zmm15, [r10 + rbp + 128]
-    vmulpd zmm15, zmm15, zmm3
-    vfnmadd231pd zmm15, zmm19, [r9 + rbp + 128]
-
-    vmulpd zmm19, zmm19, [r10 + rbp + 128]
-    vfmadd231pd zmm19, zmm3, [r9 + rbp + 128]
-    vmovupd zmm3, zmm15
-    
-    ; --Advance pointers--
-    ; Its fine bc it works in parralel since lea is AGU 
-    lea rdi, [rdi + 4 * rcx]
-    lea rsi, [rsi + 4 * rcx]
-    
-    ; --Load 4-7--
-    vmovapd zmm4,  [rdi]
-    vmovapd zmm20, [rsi]
-
-    vmovapd zmm5,  [rdi + rcx]
-    vmovapd zmm21, [rsi + rcx]
-
-    vmovapd zmm6,  [rdi + 2 * rcx]
-    vmovapd zmm22, [rsi + 2 * rcx]
-
-    vmovapd zmm7,  [rdi + rdx]
-    vmovapd zmm23, [rsi + rdx]
-
-    vmovapd zmm15, [r10 + rbp + 192] ;Why bother with pointers inc and stuff..?
-    vmulpd zmm15, zmm15, zmm4
-    vfnmadd231pd zmm15, zmm20, [r9 + rbp + 192]
-
-    vmulpd zmm20, zmm20, [r10 + rbp + 192]
-    vfmadd231pd zmm20, zmm4, [r9 + rbp + 192]
-    vmovupd zmm4, zmm15
-
-    vmovapd zmm15, [r10 + rbp + 256]
-    vmulpd zmm15, zmm15, zmm5
-    vfnmadd231pd zmm15, zmm21, [r9 + rbp + 256]
-
-    vmulpd zmm21, zmm21, [r10 + rbp + 256]
-    vfmadd231pd zmm21, zmm5, [r9 + rbp + 256]
-    vmovupd zmm5, zmm15
-
-    vmovapd zmm15, [r10 + rbp + 320]
-    vmulpd zmm15, zmm15, zmm6
-    vfnmadd231pd zmm15, zmm22, [r9 + rbp + 320]
-
-    vmulpd zmm22, zmm22, [r10 + rbp + 320]
-    vfmadd231pd zmm22, zmm6, [r9 + rbp + 320]
-    vmovupd zmm6, zmm15
-
-    vmovapd zmm15, [r10 + rbp + 384]
-    vmulpd zmm15, zmm15, zmm7
-    vfnmadd231pd zmm15, zmm23, [r9 + rbp + 384]
-
-    vmulpd zmm23, zmm23, [r10 + rbp + 384]
-    vfmadd231pd zmm23, zmm7, [r9 + rbp + 384]
-    vmovupd zmm7, zmm15
-    
-    ; --Advance pointers--
-    lea rdi, [rdi + 4 * rcx]
-    lea rsi, [rsi + 4 * rcx]
-    
-    ; --Load 8-11
-    vmovapd zmm8,  [rdi]
-    vmovapd zmm24, [rsi]
-
-    vmovapd zmm9,  [rdi + rcx]
-    vmovapd zmm25, [rsi + rcx]
-
-    vmovapd zmm10, [rdi + 2 * rcx]
-    vmovapd zmm26, [rsi + 2 * rcx]
-
-    vmovapd zmm11, [rdi + rdx]
-    vmovapd zmm27, [rsi + rdx]
-
-    vmovapd zmm15, [r10 + rbp + 448]
-    vmulpd zmm15, zmm15, zmm8
-    vfnmadd231pd zmm15, zmm24, [r9 + rbp + 448]
-
-    vmulpd zmm24, zmm24, [r10 + rbp + 448]
-    vfmadd231pd zmm24, zmm8, [r9 + rbp + 448]
-    vmovupd zmm8, zmm15
-
-    vmovapd zmm15, [r10 + rbp + 512]
-    vmulpd zmm15, zmm15, zmm9
-    vfnmadd231pd zmm15, zmm25, [r9 + rbp + 512]
-
-    vmulpd zmm25, zmm25, [r10 + rbp + 512]
-    vfmadd231pd zmm25, zmm9, [r9 + rbp + 512]
-    vmovupd zmm9, zmm15
-
-    vmovapd zmm15, [r10 + rbp + 576]
-    vmulpd zmm15, zmm15, zmm10
-    vfnmadd231pd zmm15, zmm26, [r9 + rbp + 576]
-
-    vmulpd zmm26, zmm26, [r10 + rbp + 576]
-    vfmadd231pd zmm26, zmm10, [r9 + rbp + 576]
-    vmovupd zmm10, zmm15
-
-    vmovapd zmm15, [r10 + rbp + 640]
-    vmulpd zmm15, zmm15, zmm11
-    vfnmadd231pd zmm15, zmm27, [r9 + rbp + 640]
-
-    vmulpd zmm27, zmm27, [r10 + rbp + 640]
-    vfmadd231pd zmm27, zmm11, [r9 + rbp + 640]
-    vmovupd zmm11, zmm15
-    
-    ; --Advance pointers--
-    lea rdi, [rdi + 4 * rcx]
-    lea rsi, [rsi + 4 * rcx]
-
-    vmovupd [rsp - 64], zmm0
-    
-    ; Load 12-15
-    vmovapd zmm12, [rdi]
-    vmovapd zmm28, [rsi]
-
-    vmovapd zmm13, [rdi + rcx]
-    vmovapd zmm29, [rsi + rcx]
-
-    vmovapd zmm14, [rdi + 2 * rcx]
-    vmovapd zmm30, [rsi + 2 * rcx]
-
-    vmovapd zmm15, [rdi + rdx]
-    vmovapd zmm31, [rsi + rdx]
-
-    vmovapd zmm0, [r10 + rbp + 704]
-    vmulpd zmm0, zmm0, zmm12
-    vfnmadd231pd zmm0, zmm28, [r9 + rbp + 704]
-
-    vmulpd zmm28, zmm28, [r10 + rbp + 704]
-    vfmadd231pd zmm28, zmm12, [r9 + rbp + 704]
-    vmovupd zmm12, zmm0
-
-    vmovapd zmm0, [r10 + rbp + 768]
-    vmulpd zmm0, zmm0, zmm13
-    vfnmadd231pd zmm0, zmm29, [r9 + rbp + 768]
-
-    vmulpd zmm29, zmm29, [r10 + rbp + 768]
-    vfmadd231pd zmm29, zmm13, [r9 + rbp + 768]
-    vmovupd zmm13, zmm0
-
-    vmovapd zmm0, [r10 + rbp + 832]
-    vmulpd zmm0, zmm0, zmm14
-    vfnmadd231pd zmm0, zmm30, [r9 + rbp + 832]
-
-    vmulpd zmm30, zmm30, [r10 + rbp + 832]
-    vfmadd231pd zmm30, zmm14, [r9 + rbp + 832]
-    vmovupd zmm14, zmm0
-
-    vmovapd zmm0, [r10 + rbp + 896]
-    vmulpd zmm0, zmm0, zmm15
-    vfnmadd231pd zmm0, zmm31, [r9 + rbp + 896]
-
-    vmulpd zmm31, zmm31, [r10 + rbp + 896]
-    vfmadd231pd zmm31, zmm15, [r9 + rbp + 896]
-    vmovupd zmm15, zmm0
-
-    vmovupd zmm0, [rsp-64]
-    ;;Seems pretty readable
-    
+;;Moved it to macro bc I use it in both stride 1 loop and main loop
+%macro RADIX16_BUTTERFLY 0
     ;;I treat radix 16 as 2d complex matrix 4x4 such: zmm{real,complex}
     ;+---------------------------------------+
     ;|zmm0,16  |zmm4,20  |zmm8,24   |zmm12,28|
@@ -685,6 +411,332 @@ fft_kernel:
     vmovupd zmm15, [rsp - 384]
     vaddpd zmm15, zmm15, [rsp - 256]
     vmovupd [rsp - 640], zmm15
+%endmacro
+
+;;8x8 transpose of doubles: row r of 1..8 becomes column r, %9 = scratch register
+;;More on that at the bottom
+%macro TRANSPOSE8 9
+    vunpckhpd %9, %1, %2
+    vunpcklpd %1, %1, %2
+    vmovapd %2, %9
+    vunpckhpd %9, %3, %4
+    vunpcklpd %3, %3, %4
+    vmovapd %4, %9
+    vunpckhpd %9, %5, %6
+    vunpcklpd %5, %5, %6
+    vmovapd %6, %9
+    vunpckhpd %9, %7, %8
+    vunpcklpd %7, %7, %8
+    vmovapd %8, %9
+
+    vshuff64x2 %9, %1, %3, 0xDD
+    vshuff64x2 %1, %1, %3, 0x88
+    vmovapd %3, %9
+    vshuff64x2 %9, %2, %4, 0xDD
+    vshuff64x2 %2, %2, %4, 0x88
+    vmovapd %4, %9
+    vshuff64x2 %9, %5, %7, 0xDD
+    vshuff64x2 %5, %5, %7, 0x88
+    vmovapd %7, %9
+    vshuff64x2 %9, %6, %8, 0xDD
+    vshuff64x2 %6, %6, %8, 0x88
+    vmovapd %8, %9
+
+    vshuff64x2 %9, %1, %5, 0xDD
+    vshuff64x2 %1, %1, %5, 0x88
+    vmovapd %5, %9
+    vshuff64x2 %9, %3, %7, 0xDD
+    vshuff64x2 %3, %3, %7, 0x88
+    vmovapd %7, %9
+    vshuff64x2 %9, %2, %6, 0xDD
+    vshuff64x2 %2, %2, %6, 0x88
+    vmovapd %6, %9
+    vshuff64x2 %9, %4, %8, 0xDD
+    vshuff64x2 %4, %4, %8, 0x88
+    vmovapd %8, %9
+%endmacro
+
+section .text
+
+global fft_kernel
+fft_kernel:
+;rdi = *src real, [rdi+8] = imag
+;rsi = *dst real, [rsi+8] = imag
+;rdx = *twiddles real, [rdi+8] = imag
+;rcx = N(of samples)
+;r8 = curret stride
+
+    push r12
+    push r13
+    push r14
+    push r15
+    push rbx
+    push rbp
+    
+    ; 1. Calculate loop limit: rcx = (N / 16) * 8
+    shr rcx, 4
+    shl rcx, 3
+    
+    ;Scale stride to bytes
+    shl r8, 3
+    
+    ;;scr
+    mov r14, [rdi]
+    mov r13, [rdi + 8]
+    ;;dst
+    mov r12, [rsi]
+    mov r11, [rsi + 8]
+    ;;Twiddles
+    mov r10, [rdx]
+    mov r9, [rdx + 8]
+
+    xor rax, rax
+    xor rbx, rbx
+    xor r15, r15
+
+    ;; Stride 1 has its own loop (no twiddles + transposed stores)
+    cmp r8, 8
+    je .stride1_loop
+
+; rax = current counter
+; rbx = base of the 16*stride output block (bytes)
+; r15 = offset within block
+; r8  = stride (bytes), output spacing
+; rcx = N/16 * 8 = loop limit and input spacing (bytes)
+
+.loop:
+    ;; So this is very clever trick I recently learnt
+    ;; Instead of doing offset = some_count % stride(rax % r8), which is very slow 
+    ;; I mov r8 into rdx and dec rdx, and then rdx AND rax which gives us rax % r8 
+    mov r15, rax
+    mov rdx, r8
+    dec rdx
+    and r15, rdx
+
+    ;; Twiddles only depend on the position inside the block
+    ;; So in the first 3 passes we don't need full twiddles which is like 3.9MB and doesn't fit into L1.
+    ;; So by changing so passes 1-3 uses only twiddles they need
+    ;;(1 twiddle for first pass(all ones) 240 twiddles for pass 2 and 3840 twiddles for pass 2)
+    ;; We can read twiddles in 1-3 directely from L1 which should be fast.
+    lea rbp, [r15 + 4 * r15]
+    lea rbp, [rbp + 2 * rbp]
+
+    mov rbx, rax
+    not rdx
+    and rbx, rdx
+    shl rbx, 4
+
+
+    ;;Set up offsets for loading
+    ;;Stockham: inputs are read N/16 apart (rcx = N/16 * 8 bytes) starting at butterfly j (rax = j * 8 bytes),
+    ;;outputs are written stride apart so r8, that's what sorts the result and it wrong before
+    lea rdi, [r14 + rax]
+    lea rsi, [r13 + rax]
+    lea rdx, [rcx + 2 * rcx]
+
+    prefetcht1 [rdi + 512]
+    prefetcht1 [rdi + rcx + 512]
+    prefetcht1 [rdi + 2 * rcx + 512]
+
+    ;; Load them by chunks of 4 and immidiately add twiddles
+
+    ; --Load 0-3
+    ;; I can finally use vmovapds after that fix hell yeah!!
+    vmovapd zmm0,  [rdi]
+    vmovapd zmm16, [rsi]
+
+    vmovapd zmm1,  [rdi + rcx]
+    vmovapd zmm17, [rsi + rcx]
+
+    vmovapd zmm2,  [rdi + 2 * rcx]
+    vmovapd zmm18, [rsi + 2 * rcx]
+
+    vmovapd zmm3,  [rdi + rdx]
+    vmovapd zmm19, [rsi + rdx]
+
+    ; Real new = R * T_R - I * T_I
+    ; Imag new = I * T_R + R * T_I
+
+    vmovapd zmm15, [r10 + rbp] ;dw its empty atm
+    vmulpd zmm15, zmm15, zmm1
+    ;;This is negative add so -(2*3) + 1
+    vfnmadd231pd zmm15, zmm17, [r9 + rbp]
+
+    vmulpd zmm17, zmm17, [r10+rbp]
+    vfmadd231pd zmm17, zmm1, [r9 + rbp]
+    vmovupd zmm1, zmm15
+
+    vmovapd zmm15, [r10 + rbp + 64]
+    vmulpd zmm15, zmm15, zmm2
+    vfnmadd231pd zmm15, zmm18, [r9 + rbp + 64]
+
+    vmulpd zmm18, zmm18, [r10 + rbp + 64]
+    vfmadd231pd zmm18, zmm2, [r9 + rbp + 64]
+    vmovupd zmm2, zmm15
+
+    vmovapd zmm15, [r10 + rbp + 128]
+    vmulpd zmm15, zmm15, zmm3
+    vfnmadd231pd zmm15, zmm19, [r9 + rbp + 128]
+
+    vmulpd zmm19, zmm19, [r10 + rbp + 128]
+    vfmadd231pd zmm19, zmm3, [r9 + rbp + 128]
+    vmovupd zmm3, zmm15
+    
+    ; --Advance pointers--
+    ; Its fine bc it works in parralel since lea is AGU 
+    lea rdi, [rdi + 4 * rcx]
+    lea rsi, [rsi + 4 * rcx]
+    
+    ; --Load 4-7--
+    vmovapd zmm4,  [rdi]
+    vmovapd zmm20, [rsi]
+
+    vmovapd zmm5,  [rdi + rcx]
+    vmovapd zmm21, [rsi + rcx]
+
+    vmovapd zmm6,  [rdi + 2 * rcx]
+    vmovapd zmm22, [rsi + 2 * rcx]
+
+    vmovapd zmm7,  [rdi + rdx]
+    vmovapd zmm23, [rsi + rdx]
+
+    vmovapd zmm15, [r10 + rbp + 192] ;Why bother with pointers inc and stuff..?
+    vmulpd zmm15, zmm15, zmm4
+    vfnmadd231pd zmm15, zmm20, [r9 + rbp + 192]
+
+    vmulpd zmm20, zmm20, [r10 + rbp + 192]
+    vfmadd231pd zmm20, zmm4, [r9 + rbp + 192]
+    vmovupd zmm4, zmm15
+
+    vmovapd zmm15, [r10 + rbp + 256]
+    vmulpd zmm15, zmm15, zmm5
+    vfnmadd231pd zmm15, zmm21, [r9 + rbp + 256]
+
+    vmulpd zmm21, zmm21, [r10 + rbp + 256]
+    vfmadd231pd zmm21, zmm5, [r9 + rbp + 256]
+    vmovupd zmm5, zmm15
+
+    vmovapd zmm15, [r10 + rbp + 320]
+    vmulpd zmm15, zmm15, zmm6
+    vfnmadd231pd zmm15, zmm22, [r9 + rbp + 320]
+
+    vmulpd zmm22, zmm22, [r10 + rbp + 320]
+    vfmadd231pd zmm22, zmm6, [r9 + rbp + 320]
+    vmovupd zmm6, zmm15
+
+    vmovapd zmm15, [r10 + rbp + 384]
+    vmulpd zmm15, zmm15, zmm7
+    vfnmadd231pd zmm15, zmm23, [r9 + rbp + 384]
+
+    vmulpd zmm23, zmm23, [r10 + rbp + 384]
+    vfmadd231pd zmm23, zmm7, [r9 + rbp + 384]
+    vmovupd zmm7, zmm15
+    
+    ; --Advance pointers--
+    lea rdi, [rdi + 4 * rcx]
+    lea rsi, [rsi + 4 * rcx]
+    
+    ; --Load 8-11
+    vmovapd zmm8,  [rdi]
+    vmovapd zmm24, [rsi]
+
+    vmovapd zmm9,  [rdi + rcx]
+    vmovapd zmm25, [rsi + rcx]
+
+    vmovapd zmm10, [rdi + 2 * rcx]
+    vmovapd zmm26, [rsi + 2 * rcx]
+
+    vmovapd zmm11, [rdi + rdx]
+    vmovapd zmm27, [rsi + rdx]
+
+    vmovapd zmm15, [r10 + rbp + 448]
+    vmulpd zmm15, zmm15, zmm8
+    vfnmadd231pd zmm15, zmm24, [r9 + rbp + 448]
+
+    vmulpd zmm24, zmm24, [r10 + rbp + 448]
+    vfmadd231pd zmm24, zmm8, [r9 + rbp + 448]
+    vmovupd zmm8, zmm15
+
+    vmovapd zmm15, [r10 + rbp + 512]
+    vmulpd zmm15, zmm15, zmm9
+    vfnmadd231pd zmm15, zmm25, [r9 + rbp + 512]
+
+    vmulpd zmm25, zmm25, [r10 + rbp + 512]
+    vfmadd231pd zmm25, zmm9, [r9 + rbp + 512]
+    vmovupd zmm9, zmm15
+
+    vmovapd zmm15, [r10 + rbp + 576]
+    vmulpd zmm15, zmm15, zmm10
+    vfnmadd231pd zmm15, zmm26, [r9 + rbp + 576]
+
+    vmulpd zmm26, zmm26, [r10 + rbp + 576]
+    vfmadd231pd zmm26, zmm10, [r9 + rbp + 576]
+    vmovupd zmm10, zmm15
+
+    vmovapd zmm15, [r10 + rbp + 640]
+    vmulpd zmm15, zmm15, zmm11
+    vfnmadd231pd zmm15, zmm27, [r9 + rbp + 640]
+
+    vmulpd zmm27, zmm27, [r10 + rbp + 640]
+    vfmadd231pd zmm27, zmm11, [r9 + rbp + 640]
+    vmovupd zmm11, zmm15
+    
+    ; --Advance pointers--
+    lea rdi, [rdi + 4 * rcx]
+    lea rsi, [rsi + 4 * rcx]
+
+    vmovupd [rsp - 64], zmm0
+    
+    ; Load 12-15
+    vmovapd zmm12, [rdi]
+    vmovapd zmm28, [rsi]
+
+    vmovapd zmm13, [rdi + rcx]
+    vmovapd zmm29, [rsi + rcx]
+
+    vmovapd zmm14, [rdi + 2 * rcx]
+    vmovapd zmm30, [rsi + 2 * rcx]
+
+    vmovapd zmm15, [rdi + rdx]
+    vmovapd zmm31, [rsi + rdx]
+
+    vmovapd zmm0, [r10 + rbp + 704]
+    vmulpd zmm0, zmm0, zmm12
+    vfnmadd231pd zmm0, zmm28, [r9 + rbp + 704]
+
+    vmulpd zmm28, zmm28, [r10 + rbp + 704]
+    vfmadd231pd zmm28, zmm12, [r9 + rbp + 704]
+    vmovupd zmm12, zmm0
+
+    vmovapd zmm0, [r10 + rbp + 768]
+    vmulpd zmm0, zmm0, zmm13
+    vfnmadd231pd zmm0, zmm29, [r9 + rbp + 768]
+
+    vmulpd zmm29, zmm29, [r10 + rbp + 768]
+    vfmadd231pd zmm29, zmm13, [r9 + rbp + 768]
+    vmovupd zmm13, zmm0
+
+    vmovapd zmm0, [r10 + rbp + 832]
+    vmulpd zmm0, zmm0, zmm14
+    vfnmadd231pd zmm0, zmm30, [r9 + rbp + 832]
+
+    vmulpd zmm30, zmm30, [r10 + rbp + 832]
+    vfmadd231pd zmm30, zmm14, [r9 + rbp + 832]
+    vmovupd zmm14, zmm0
+
+    vmovapd zmm0, [r10 + rbp + 896]
+    vmulpd zmm0, zmm0, zmm15
+    vfnmadd231pd zmm0, zmm31, [r9 + rbp + 896]
+
+    vmulpd zmm31, zmm31, [r10 + rbp + 896]
+    vfmadd231pd zmm31, zmm15, [r9 + rbp + 896]
+    vmovupd zmm15, zmm0
+
+    vmovupd zmm0, [rsp-64]
+    ;;Seems pretty readable
+    
+    RADIX16_BUTTERFLY
+
 
     ;;Calculations done, now we need to store it basically the same thing as loading
     lea rdi, [rbx + r15] ;rdi = dst real pointer
@@ -693,75 +745,213 @@ fft_kernel:
     lea rdx, [r8 + 2 * r8]
     
     ;;0-3
-    vmovupd [rdi], zmm0
-    vmovupd [rsi], zmm16
+    vmovapd [rdi], zmm0
+    vmovapd [rsi], zmm16
 
-    vmovupd [rdi + r8], zmm4
-    vmovupd [rsi + r8], zmm20
+    vmovapd [rdi + r8], zmm4
+    vmovapd [rsi + r8], zmm20
 
-    vmovupd [rdi + 2 * r8], zmm8
-    vmovupd [rsi + 2 * r8], zmm24
+    vmovapd [rdi + 2 * r8], zmm8
+    vmovapd [rsi + 2 * r8], zmm24
 
-    vmovupd [rdi + rdx], zmm12
-    vmovupd [rsi + rdx], zmm28
+    vmovapd [rdi + rdx], zmm12
+    vmovapd [rsi + rdx], zmm28
 
     ; --Advance pointers--
     lea rdi, [rdi + 4 * r8]
     lea rsi, [rsi + 4 * r8]
 
     ;4-7
-    vmovupd [rdi], zmm1
-    vmovupd [rsi], zmm17
+    vmovapd [rdi], zmm1
+    vmovapd [rsi], zmm17
 
-    vmovupd [rdi + r8], zmm5
-    vmovupd [rsi + r8], zmm21
+    vmovapd [rdi + r8], zmm5
+    vmovapd [rsi + r8], zmm21
 
-    vmovupd [rdi + 2 * r8], zmm9
-    vmovupd [rsi + 2 * r8], zmm25
+    vmovapd [rdi + 2 * r8], zmm9
+    vmovapd [rsi + 2 * r8], zmm25
 
-    vmovupd [rdi + rdx], zmm13
-    vmovupd [rsi + rdx], zmm29
+    vmovapd [rdi + rdx], zmm13
+    vmovapd [rsi + rdx], zmm29
 
     ; --Advance pointers--
     lea rdi, [rdi + 4 * r8]
     lea rsi, [rsi + 4 * r8]
 
     ;8-11
-    vmovupd [rdi], zmm2
-    vmovupd [rsi], zmm18
+    vmovapd [rdi], zmm2
+    vmovapd [rsi], zmm18
 
-    vmovupd [rdi + r8], zmm6
-    vmovupd [rsi + r8], zmm22
+    vmovapd [rdi + r8], zmm6
+    vmovapd [rsi + r8], zmm22
 
-    vmovupd [rdi + 2 * r8], zmm10
-    vmovupd [rsi + 2 * r8], zmm26
+    vmovapd [rdi + 2 * r8], zmm10
+    vmovapd [rsi + 2 * r8], zmm26
 
-    vmovupd [rdi + rdx], zmm14
-    vmovupd [rsi + rdx], zmm30
+    vmovapd [rdi + rdx], zmm14
+    vmovapd [rsi + rdx], zmm30
 
     ; --Advance pointers--
     lea rdi, [rdi + 4 * r8]
     lea rsi, [rsi + 4 * r8]
 
     ;12-15
-    vmovupd [rdi], zmm3
-    vmovupd [rsi], zmm19
+    vmovapd [rdi], zmm3
+    vmovapd [rsi], zmm19
 
-    vmovupd [rdi + r8], zmm7
-    vmovupd [rsi + r8], zmm23
+    vmovapd [rdi + r8], zmm7
+    vmovapd [rsi + r8], zmm23
 
-    vmovupd [rdi + 2 * r8], zmm11
-    vmovupd [rsi + 2 * r8], zmm27
+    vmovapd [rdi + 2 * r8], zmm11
+    vmovapd [rsi + 2 * r8], zmm27
 
     vmovupd zmm15, [rsp - 576]
     vmovupd zmm31, [rsp - 640]
-    vmovupd [rdi + rdx], zmm15
-    vmovupd [rsi + rdx], zmm31
+    vmovapd [rdi + rdx], zmm15
+    vmovapd [rsi + rdx], zmm31
 
 
     add rax, 64
     cmp rax, rcx
     jl .loop
+    jmp .exit
+
+;; Stride 1: every butterfly owns 16 consecutive outputs dst[16j .. 16j + 15], but a register holds
+;; the same output k of 8 butterflies. So instead of storing rows we transpose 8x8 blocks and store
+;; columns: 16 contiguous stores per component. Twiddles are all 1 here so we skip them
+
+;; Alright so in stride 1 we've got one big mismatch problem, let me first explain why it isn't a problem in other strides
+;; Bc all 8 butterflies sit right next to each other in memory inside a block so vmovapd just works. But on stride 1 each
+;; Butterfly has its own 16-bit block and basically vmovapd can't handle that. But the good news(or bad) its just that
+;; Rows and colums are swapped - that's it, so we basically gotta reshuffle rows and columns on stride 1.
+;; tbh I didn't want to shuffle for a while bc I thought it was slow asf but actually turns out it somehow made it faster.
+;; actually I know why bc this is first pass and it doesn't apply twiddles(they are 1 nontheless) so that kinda helps.
+.stride1_loop:
+    lea rdi, [r14 + rax]
+    lea rsi, [r13 + rax]
+    lea rdx, [rcx + 2 * rcx]
+
+    prefetcht1 [rdi + 512]
+    prefetcht1 [rdi + rcx + 512]
+    prefetcht1 [rdi + 2 * rcx + 512]
+
+    vmovapd zmm0,  [rdi]
+    vmovapd zmm16, [rsi]
+
+    vmovapd zmm1,  [rdi + rcx]
+    vmovapd zmm17, [rsi + rcx]
+
+    vmovapd zmm2,  [rdi + 2 * rcx]
+    vmovapd zmm18, [rsi + 2 * rcx]
+
+    vmovapd zmm3,  [rdi + rdx]
+    vmovapd zmm19, [rsi + rdx]
+
+    lea rdi, [rdi + 4 * rcx]
+    lea rsi, [rsi + 4 * rcx]
+
+    vmovapd zmm4,  [rdi]
+    vmovapd zmm20, [rsi]
+
+    vmovapd zmm5,  [rdi + rcx]
+    vmovapd zmm21, [rsi + rcx]
+
+    vmovapd zmm6,  [rdi + 2 * rcx]
+    vmovapd zmm22, [rsi + 2 * rcx]
+
+    vmovapd zmm7,  [rdi + rdx]
+    vmovapd zmm23, [rsi + rdx]
+
+    lea rdi, [rdi + 4 * rcx]
+    lea rsi, [rsi + 4 * rcx]
+
+    vmovapd zmm8,  [rdi]
+    vmovapd zmm24, [rsi]
+
+    vmovapd zmm9,  [rdi + rcx]
+    vmovapd zmm25, [rsi + rcx]
+
+    vmovapd zmm10, [rdi + 2 * rcx]
+    vmovapd zmm26, [rsi + 2 * rcx]
+
+    vmovapd zmm11, [rdi + rdx]
+    vmovapd zmm27, [rsi + rdx]
+
+    lea rdi, [rdi + 4 * rcx]
+    lea rsi, [rsi + 4 * rcx]
+
+    vmovapd zmm12, [rdi]
+    vmovapd zmm28, [rsi]
+
+    vmovapd zmm13, [rdi + rcx]
+    vmovapd zmm29, [rsi + rcx]
+
+    vmovapd zmm14, [rdi + 2 * rcx]
+    vmovapd zmm30, [rsi + 2 * rcx]
+
+    vmovapd zmm15, [rdi + rdx]
+    vmovapd zmm31, [rsi + rdx]
+
+    RADIX16_BUTTERFLY
+
+    ;; dst block of these 8 butterflies starts at 16j doubles = rax * 16 bytes
+    mov rdi, rax
+    shl rdi, 4
+    lea rsi, [r11 + rdi]
+    add rdi, r12
+
+    ;; If you are wondering wtf those comments mean - just don't im writing them for myself primary
+    ;; Outputs 0-7 (slot k is in zmm 4*(k%4) + k/4) After the transpose, register v holds
+    ;; outputs 0-7 of butterfly j+v to dst[16(j+v) + 0..7] = byte offset 128v
+    TRANSPOSE8 zmm0, zmm4, zmm8, zmm12, zmm1, zmm5, zmm9, zmm13, zmm15
+
+    vmovapd [rdi],       zmm0
+    vmovapd [rdi + 128], zmm4
+    vmovapd [rdi + 256], zmm8
+    vmovapd [rdi + 384], zmm12
+    vmovapd [rdi + 512], zmm1
+    vmovapd [rdi + 640], zmm5
+    vmovapd [rdi + 768], zmm9
+    vmovapd [rdi + 896], zmm13
+
+    ;; Outputs 8-15 to dst[16(j+v) + 8..15] = byte offset 128v + 64 (slot 15 comes from the stack)
+    vmovupd zmm0, [rsp - 576]
+    TRANSPOSE8 zmm2, zmm6, zmm10, zmm14, zmm3, zmm7, zmm11, zmm0, zmm15
+
+    vmovapd [rdi + 64],  zmm2
+    vmovapd [rdi + 192], zmm6
+    vmovapd [rdi + 320], zmm10
+    vmovapd [rdi + 448], zmm14
+    vmovapd [rdi + 576], zmm3
+    vmovapd [rdi + 704], zmm7
+    vmovapd [rdi + 832], zmm11
+    vmovapd [rdi + 960], zmm0
+
+    ;; Same for imag
+    TRANSPOSE8 zmm16, zmm20, zmm24, zmm28, zmm17, zmm21, zmm25, zmm29, zmm31
+    vmovapd [rsi],       zmm16
+    vmovapd [rsi + 128], zmm20
+    vmovapd [rsi + 256], zmm24
+    vmovapd [rsi + 384], zmm28
+    vmovapd [rsi + 512], zmm17
+    vmovapd [rsi + 640], zmm21
+    vmovapd [rsi + 768], zmm25
+    vmovapd [rsi + 896], zmm29
+
+    vmovupd zmm16, [rsp - 640]
+    TRANSPOSE8 zmm18, zmm22, zmm26, zmm30, zmm19, zmm23, zmm27, zmm16, zmm31
+    vmovapd [rsi + 64],  zmm18
+    vmovapd [rsi + 192], zmm22
+    vmovapd [rsi + 320], zmm26
+    vmovapd [rsi + 448], zmm30
+    vmovapd [rsi + 576], zmm19
+    vmovapd [rsi + 704], zmm23
+    vmovapd [rsi + 832], zmm27
+    vmovapd [rsi + 960], zmm16
+
+    add rax, 64
+    cmp rax, rcx
+    jl .stride1_loop
 
 .exit:
     sfence
