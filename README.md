@@ -19,12 +19,9 @@ This is the absolute crown jewel of the project. I read an entire digital signal
 
 | FFTW planner mode | FFTW (per FFT) | UFAML (per FFT) | UFAML vs FFTW | FFTW planning time |
 | :--- | :---: | :---: | :---: | :---: |
-| **FFTW_ESTIMATE** | 406.7 µs | 219.0 µs | **1.86x faster** | ~0 |
+| **FFTW_ESTIMATE** | 406.7 µs | 219.0 µs | **1.86x faster** | ~3ms |
 | **FFTW_MEASURE** | 212.6 µs | 219.0 µs | 1.03x slower | ~1 s |
 | **FFTW_PATIENT** | 189.3 µs | 219.0 µs | 1.16x slower | ~16-21 s |
-
->[!Note]
-> FFTW_MEASURE needs about 1 s of planning and FFTW_PATIENT about 16-21 s before the first transform, while UFAML's setup (building the twiddle table) takes about 3 ms. I'm not saying anything, but you can make your own evaluations.
 
 So I guess that officially makes me the fastest in the west 😁 because in a duel you don't have 20 s to take out your gun.
 But seriously, I am extremely proud of how this turned out.
@@ -33,7 +30,7 @@ But seriously, I am extremely proud of how this turned out.
 * **Data:** 65,536-point forward complex FFT in double precision (1 MB of input). The signal is `sin(2πi/128) + 0.5·cos(2πi/32)` (imaginary part 0).
 * **Layouts:** UFAML uses split real/imaginary arrays (SoA), 64-byte aligned, out-of-place. FFTW uses its interleaved `fftw_complex` arrays from `fftw_malloc`, out-of-place.
 * **Timing:** `hyperfine` with 3 warmup runs and 15 timed runs of 10,000 transforms each. Setup is excluded by also timing a run with 0 transforms and subtracting it.
-* **FFTW planning:** MEASURE and PATIENT plans are loaded from saved wisdom, so the table shows pure transform time. Planning time is listed separately.
+* **FFTW planning:** MEASURE and PATIENT plans are loaded from saved wisdom(funny name btw), so the table shows pure transform time. Planning time is listed separately.
 * **Correctness:** UFAML's output matches FFTW to a max error of ~4e-12 on the test signal and ~2e-13 on random complex input.
 
 ## Optimization 
